@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import Result from "./components/Result";
+import InfoModal from "./components/InfoModal";
 import searchCache from "./utils/searchCache";
 import "./App.css";
 
@@ -35,6 +36,7 @@ function App() {
   const [isGridView, setIsGridView] = useState(prefs.view);
   const resultsRef = useRef(null);
   const searchInputRef = useRef(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Listen for OS theme changes
   useEffect(() => {
@@ -480,31 +482,52 @@ function App() {
           </label>
           <span>JPG</span>
         </div>
-        <button
-          className="theme-toggle"
-          onClick={toggleTheme}
-          aria-label="Toggle dark mode"
-        >
-          {isDarkMode ? (
+        <div className="right-controls">
+          <button
+            className="help-button"
+            onClick={() => setIsModalOpen(true)}
+            aria-label="Show help"
+          >
             <svg
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 24 24"
+              width="24"
+              height="24"
               fill="none"
               stroke="currentColor"
               strokeWidth="2"
             >
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+              <circle cx="12" cy="12" r="10" />
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+              <line x1="12" y1="17" x2="12" y2="17" strokeLinecap="round" />
             </svg>
-          ) : (
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="currentColor"
-            >
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-            </svg>
-          )}
-        </button>
+          </button>
+          <button
+            className="theme-toggle"
+            onClick={toggleTheme}
+            aria-label="Toggle dark mode"
+          >
+            {isDarkMode ? (
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+              </svg>
+            ) : (
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+              </svg>
+            )}
+          </button>
+        </div>
       </div>
 
       <div className="header-section">
@@ -578,6 +601,8 @@ function App() {
           )}
         </div>
       </div>
+
+      <InfoModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
     </div>
   );
 }
