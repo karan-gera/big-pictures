@@ -335,7 +335,7 @@ function App() {
           role="button"
           tabIndex={0}
         >
-          big.pictures
+          bigpictures.xyz
         </h1>
         <div className="search-container">
           <input
