@@ -8,7 +8,19 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [debouncedResults, setDebouncedResults] = useState([]);
   const [currentAPI, setCurrentAPI] = useState("itunes"); // Track which API we're using
+  const [isDarkMode, setIsDarkMode] = useState(true);
   const resultsRef = useRef(null);
+
+  useEffect(() => {
+    document.documentElement.setAttribute(
+      "data-theme",
+      isDarkMode ? "dark" : "light"
+    );
+  }, [isDarkMode]);
+
+  const toggleTheme = useCallback(() => {
+    setIsDarkMode((prev) => !prev);
+  }, []);
 
   // Handle the debounced search term
   useEffect(() => {
@@ -202,6 +214,32 @@ function App() {
 
   return (
     <div className="App">
+      <button
+        className="theme-toggle"
+        onClick={toggleTheme}
+        aria-label="Toggle dark mode"
+      >
+        {isDarkMode ? (
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+          </svg>
+        ) : (
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+          >
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+          </svg>
+        )}
+      </button>
+
       <div className="header-section">
         <h1
           className="site-title"
@@ -225,7 +263,11 @@ function App() {
       <div className="results-section">
         <div className="results-grid" ref={resultsRef}>
           {isLoading ? (
-            <div className="loading">Searching...</div>
+            <div className="loading">
+              <div className="loading-dot"></div>
+              <div className="loading-dot"></div>
+              <div className="loading-dot"></div>
+            </div>
           ) : (
             debouncedResults.map((album) => (
               <Result key={album.id} album={album} />
