@@ -4,20 +4,57 @@ import searchCache from "./utils/searchCache";
 import "./App.css";
 
 function App() {
+  // Get initial preferences from localStorage or OS
+  const getUserPreferences = () => {
+    const storedTheme = localStorage.getItem("theme");
+    const storedView = localStorage.getItem("viewType");
+    const storedFormat = localStorage.getItem("imageFormat");
+
+    // If user has set a theme, use it. Otherwise, use OS preference
+    const prefersDark = window.matchMedia(
+      "(prefers-color-scheme: dark)"
+    ).matches;
+    const defaultTheme =
+      storedTheme !== null ? storedTheme === "dark" : prefersDark;
+
+    return {
+      theme: defaultTheme,
+      view: storedView ? storedView === "grid" : true,
+      format: storedFormat === "jpg" ? true : false,
+    };
+  };
+
+  const prefs = getUserPreferences();
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [debouncedResults, setDebouncedResults] = useState([]);
-  const [currentAPI, setCurrentAPI] = useState("itunes"); // Track which API we're using
-  const [isDarkMode, setIsDarkMode] = useState(true);
-  const [useJPG, setUseJPG] = useState(false);
+  const [currentAPI, setCurrentAPI] = useState("itunes");
+  const [isDarkMode, setIsDarkMode] = useState(prefs.theme);
+  const [useJPG, setUseJPG] = useState(prefs.format);
+  const [isGridView, setIsGridView] = useState(prefs.view);
   const resultsRef = useRef(null);
+
+  // Listen for OS theme changes
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const handleChange = (e) => {
+      // Only update if user hasn't set a preference
+      if (localStorage.getItem("theme") === null) {
+        setIsDarkMode(e.matches);
+      }
+    };
+
+    mediaQuery.addEventListener("change", handleChange);
+    return () => mediaQuery.removeEventListener("change", handleChange);
+  }, []);
 
   useEffect(() => {
     document.documentElement.setAttribute(
       "data-theme",
       isDarkMode ? "dark" : "light"
     );
+    localStorage.setItem("theme", isDarkMode ? "dark" : "light");
   }, [isDarkMode]);
 
   const toggleTheme = useCallback(() => {
@@ -25,8 +62,30 @@ function App() {
   }, []);
 
   const toggleFormat = useCallback(() => {
-    setUseJPG((prev) => !prev);
+    setUseJPG((prev) => {
+      localStorage.setItem("imageFormat", !prev ? "jpg" : "png");
+      return !prev;
+    });
   }, []);
+
+  const toggleView = useCallback(() => {
+    if (resultsRef.current) {
+      resultsRef.current.classList.add("view-transition");
+      setTimeout(() => {
+        setIsGridView((prev) => {
+          const newValue = !prev;
+          localStorage.setItem("viewType", newValue ? "grid" : "list");
+          return newValue;
+        });
+        resultsRef.current?.classList.remove("view-transition");
+      }, 200);
+    }
+  }, []);
+
+  // Add effect to ensure view preference is always synced with localStorage
+  useEffect(() => {
+    localStorage.setItem("viewType", isGridView ? "grid" : "list");
+  }, [isGridView]);
 
   // Handle the debounced search term
   useEffect(() => {
@@ -180,6 +239,39 @@ function App() {
     }
   }, []);
 
+  const searchLastFm = useCallback(async (term) => {
+    try {
+      const API_KEY = "e4b5091e198eeec04d25bd50cadfd01e"; // You'll need to replace this with your API key
+      const response = await fetch(
+        `https://ws.audioscrobbler.com/2.0/?method=album.search&album=${encodeURIComponent(
+          term
+        )}&api_key=${API_KEY}&format=json&limit=20`
+      );
+
+      if (!response.ok) {
+        throw new Error("Last.fm API error");
+      }
+
+      const data = await response.json();
+      const albums = data.results?.albummatches?.album || [];
+
+      return albums
+        .map((album) => ({
+          id: `lastfm-${album.mbid || album.url.split("/").pop()}`,
+          title: album.name,
+          artist: album.artist,
+          year: "N/A", // Last.fm doesn't provide year in search results
+          imageUrl: album.image[3]?.["#text"] || album.image[2]?.["#text"], // Get largest available image
+          originalImageUrl:
+            album.image[3]?.["#text"] || album.image[2]?.["#text"],
+        }))
+        .filter((album) => album.imageUrl);
+    } catch (error) {
+      console.error("Last.fm search error:", error);
+      throw error;
+    }
+  }, []);
+
   // Update the search effect
   useEffect(() => {
     const searchAlbums = async () => {
@@ -216,10 +308,17 @@ function App() {
               results = await searchMusicBrainz(debouncedSearchTerm);
               searchCache.set(`musicbrainz:${debouncedSearchTerm}`, results);
             } catch (error) {
-              console.log("Switching to Discogs due to MusicBrainz error");
-              setCurrentAPI("discogs");
-              results = await searchDiscogs(debouncedSearchTerm);
-              searchCache.set(`discogs:${debouncedSearchTerm}`, results);
+              console.log("Switching to Last.fm due to MusicBrainz error");
+              setCurrentAPI("lastfm");
+              try {
+                results = await searchLastFm(debouncedSearchTerm);
+                searchCache.set(`lastfm:${debouncedSearchTerm}`, results);
+              } catch (error) {
+                console.log("Switching to Discogs due to Last.fm error");
+                setCurrentAPI("discogs");
+                results = await searchDiscogs(debouncedSearchTerm);
+                searchCache.set(`discogs:${debouncedSearchTerm}`, results);
+              }
             }
           }
         } else if (currentAPI === "musicbrainz") {
@@ -227,7 +326,31 @@ function App() {
             results = await searchMusicBrainz(debouncedSearchTerm);
             searchCache.set(cacheKey, results);
           } catch (error) {
-            console.log("Switching to Discogs due to MusicBrainz error");
+            console.log("Switching to Last.fm due to MusicBrainz error");
+            setCurrentAPI("lastfm");
+            try {
+              results = await searchLastFm(debouncedSearchTerm);
+              searchCache.set(`lastfm:${debouncedSearchTerm}`, results);
+            } catch (error) {
+              console.log("Switching to Discogs due to Last.fm error");
+              setCurrentAPI("discogs");
+              try {
+                results = await searchDiscogs(debouncedSearchTerm);
+                searchCache.set(`discogs:${debouncedSearchTerm}`, results);
+              } catch (error) {
+                console.log("Switching back to iTunes");
+                setCurrentAPI("itunes");
+                results = await searchItunes(debouncedSearchTerm);
+                searchCache.set(`itunes:${debouncedSearchTerm}`, results);
+              }
+            }
+          }
+        } else if (currentAPI === "lastfm") {
+          try {
+            results = await searchLastFm(debouncedSearchTerm);
+            searchCache.set(cacheKey, results);
+          } catch (error) {
+            console.log("Switching to Discogs due to Last.fm error");
             setCurrentAPI("discogs");
             try {
               results = await searchDiscogs(debouncedSearchTerm);
@@ -270,6 +393,7 @@ function App() {
     searchItunes,
     searchMusicBrainz,
     searchDiscogs,
+    searchLastFm,
   ]);
 
   const handleSearch = useCallback((event) => {
@@ -367,10 +491,45 @@ function App() {
             onChange={handleSearch}
           />
         </div>
+        <div className="view-toggle">
+          <button
+            className={`view-button ${isGridView ? "active" : ""}`}
+            onClick={toggleView}
+            aria-label="Toggle grid view"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              width="18"
+              height="18"
+              fill="currentColor"
+            >
+              <path d="M3 3h7v7H3V3zm11 0h7v7h-7V3zm0 11h7v7h-7v-7zm-11 0h7v7H3v-7z" />
+            </svg>
+          </button>
+          <button
+            className={`view-button ${!isGridView ? "active" : ""}`}
+            onClick={toggleView}
+            aria-label="Toggle list view"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              width="18"
+              height="18"
+              fill="currentColor"
+            >
+              <path d="M3 4h18v2H3V4zm0 7h18v2H3v-2zm0 7h18v2H3v-2z" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       <div className="results-section">
-        <div className="results-grid" ref={resultsRef}>
+        <div
+          className={`results-grid ${!isGridView ? "list-view" : ""}`}
+          ref={resultsRef}
+        >
           {isLoading ? (
             <div className="loading">
               <div className="loading-dot"></div>

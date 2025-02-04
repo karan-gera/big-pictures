@@ -39,9 +39,11 @@ const Result = ({ album, useJPG }) => {
           style={{ opacity: imageLoaded ? 1 : 0 }}
         />
       </div>
-      <div className="album-title">{album.title}</div>
-      <div className="album-artist">{album.artist}</div>
-      <div className="album-year">{album.year}</div>
+      <div className="album-info">
+        <div className="album-title">{album.title}</div>
+        <div className="album-artist">{album.artist}</div>
+        <div className="album-year">{album.year}</div>
+      </div>
     </div>
   );
 };

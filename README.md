@@ -4,7 +4,7 @@ A simple tool to grab high-res album artwork. Nothing fancy - just search and do
 
 ## What it does
 
-- Looks up album art from iTunes, MusicBrainz, and Discogs
+- Looks up album art from iTunes, MusicBrainz, Last.fm, and Discogs
 - Tries to get the biggest image it can find
 - Falls back to other sources if one fails
 - Has dark/light modes because why not
@@ -20,6 +20,7 @@ Nothing groundbreaking, just trying to keep things snappy.
 
 - iTunes 
 - MusicBrainz
+- Last.fm
 - Discogs
 
 ## Getting started

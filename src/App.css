@@ -243,6 +243,8 @@ input:checked + .slider:before {
   grid-template-columns: repeat(4, 1fr);
   gap: 30px;
   box-sizing: border-box;
+  opacity: 1;
+  transition: opacity 0.2s ease;
 }
 
 .site-title {
@@ -340,4 +342,86 @@ input:checked + .slider:before {
   .search-container {
     width: 90vw;
   }
+}
+
+.view-toggle {
+  display: flex;
+  gap: 8px;
+  margin: 16px auto 0;
+  justify-content: center;
+}
+
+.view-button {
+  background: transparent;
+  border: none;
+  padding: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--text-color);
+  opacity: 0.5;
+  transition: all 0.2s ease;
+}
+
+.view-button:hover {
+  background: color-mix(in srgb, var(--text-color) 10%, transparent);
+}
+
+.view-button.active {
+  opacity: 1;
+  background: color-mix(in srgb, var(--text-color) 15%, transparent);
+}
+
+.results-grid.list-view {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 800px;
+}
+
+.results-grid.list-view .album-card {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  gap: 20px;
+  align-items: center;
+  padding: 12px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-color) 95%, var(--text-color));
+}
+
+.results-grid.list-view .album-card:hover {
+  transform: translateY(-2px);
+  background: color-mix(in srgb, var(--bg-color) 90%, var(--text-color));
+}
+
+.results-grid.list-view .image-container {
+  width: 100px;
+  height: 100px;
+  margin: 0;
+}
+
+.results-grid.list-view .album-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.album-card {
+  background: transparent;
+  border-radius: 12px;
+  padding: 15px;
+  box-shadow: none;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  outline: none;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.album-card.fade-out {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.view-transition {
+  opacity: 0;
 }
