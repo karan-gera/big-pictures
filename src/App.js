@@ -9,6 +9,7 @@ function App() {
   const [debouncedResults, setDebouncedResults] = useState([]);
   const [currentAPI, setCurrentAPI] = useState("itunes"); // Track which API we're using
   const [isDarkMode, setIsDarkMode] = useState(true);
+  const [useJPG, setUseJPG] = useState(false);
   const resultsRef = useRef(null);
 
   useEffect(() => {
@@ -22,6 +23,10 @@ function App() {
     setIsDarkMode((prev) => !prev);
   }, []);
 
+  const toggleFormat = useCallback(() => {
+    setUseJPG((prev) => !prev);
+  }, []);
+
   // Handle the debounced search term
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -31,12 +36,17 @@ function App() {
     return () => clearTimeout(timeoutId);
   }, [searchTerm]);
 
-  const getFormattedImageUrl = useCallback((url, size = "600x600") => {
-    // Remove any existing size parameters and get base URL
-    const baseUrl = url.split("/")[0];
-    const pathParts = url.split("/").slice(1, -1); // Get all parts except last one
-    return `${baseUrl}/${pathParts.join("/")}/${size}bb.jpg`;
-  }, []);
+  const getFormattedImageUrl = useCallback(
+    (url, size = "600x600") => {
+      // Remove any existing size parameters and get base URL
+      const baseUrl = url.split("/")[0];
+      const pathParts = url.split("/").slice(1, -1); // Get all parts except last one
+      return `${baseUrl}/${pathParts.join("/")}/${size}bb.${
+        useJPG ? "jpg" : "png"
+      }`;
+    },
+    [useJPG]
+  );
 
   const searchMusicBrainz = useCallback(async (term) => {
     try {
@@ -277,31 +287,46 @@ function App() {
 
   return (
     <div className="App">
-      <button
-        className="theme-toggle"
-        onClick={toggleTheme}
-        aria-label="Toggle dark mode"
-      >
-        {isDarkMode ? (
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-          </svg>
-        ) : (
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-          >
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-          </svg>
-        )}
-      </button>
+      <div className="header-controls">
+        <div className="format-controls">
+          <span>PNG</span>
+          <label className="switch">
+            <input
+              type="checkbox"
+              checked={useJPG}
+              onChange={toggleFormat}
+              aria-label="Toggle image format"
+            />
+            <span className="slider"></span>
+          </label>
+          <span>JPG</span>
+        </div>
+        <button
+          className="theme-toggle"
+          onClick={toggleTheme}
+          aria-label="Toggle dark mode"
+        >
+          {isDarkMode ? (
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+            </svg>
+          ) : (
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+            >
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+            </svg>
+          )}
+        </button>
+      </div>
 
       <div className="header-section">
         <h1
@@ -333,7 +358,7 @@ function App() {
             </div>
           ) : (
             debouncedResults.map((album) => (
-              <Result key={album.id} album={album} />
+              <Result key={album.id} album={album} useJPG={useJPG} />
             ))
           )}
         </div>

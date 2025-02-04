@@ -1,14 +1,16 @@
 import React, { useState } from "react";
 import "./Result.css";
 
-const Result = ({ album }) => {
+const Result = ({ album, useJPG }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
 
   const getHighResImageUrl = (url) => {
     // Remove any existing size parameters and get base URL
     const baseUrl = url.split("/")[0];
     const pathParts = url.split("/").slice(1, -1); // Get all parts except last one
-    return `${baseUrl}/${pathParts.join("/")}/${100000}x${100000}bb.jpg`;
+    return `${baseUrl}/${pathParts.join("/")}/${100000}x${100000}bb.${
+      useJPG ? "jpg" : "png"
+    }`;
   };
 
   const handleClick = () => {
