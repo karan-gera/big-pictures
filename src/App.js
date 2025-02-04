@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import Result from "./components/Result";
+import searchCache from "./utils/searchCache";
 import "./App.css";
 
 function App() {
@@ -179,7 +180,7 @@ function App() {
     }
   }, []);
 
-  // Only make API call when debouncedSearchTerm changes
+  // Update the search effect
   useEffect(() => {
     const searchAlbums = async () => {
       if (!debouncedSearchTerm) {
@@ -188,6 +189,18 @@ function App() {
       }
 
       setIsLoading(true);
+
+      // Check cache first
+      const cacheKey = `${currentAPI}:${debouncedSearchTerm}`;
+      const cachedResults = searchCache.get(cacheKey);
+
+      if (cachedResults) {
+        console.log("Cache hit:", cacheKey);
+        setDebouncedResults(cachedResults);
+        setIsLoading(false);
+        return;
+      }
+
       try {
         let results;
 
@@ -195,38 +208,46 @@ function App() {
         if (currentAPI === "itunes") {
           try {
             results = await searchItunes(debouncedSearchTerm);
+            searchCache.set(cacheKey, results);
           } catch (error) {
             console.log("Switching to MusicBrainz due to iTunes error");
             setCurrentAPI("musicbrainz");
             try {
               results = await searchMusicBrainz(debouncedSearchTerm);
+              searchCache.set(`musicbrainz:${debouncedSearchTerm}`, results);
             } catch (error) {
               console.log("Switching to Discogs due to MusicBrainz error");
               setCurrentAPI("discogs");
               results = await searchDiscogs(debouncedSearchTerm);
+              searchCache.set(`discogs:${debouncedSearchTerm}`, results);
             }
           }
         } else if (currentAPI === "musicbrainz") {
           try {
             results = await searchMusicBrainz(debouncedSearchTerm);
+            searchCache.set(cacheKey, results);
           } catch (error) {
             console.log("Switching to Discogs due to MusicBrainz error");
             setCurrentAPI("discogs");
             try {
               results = await searchDiscogs(debouncedSearchTerm);
+              searchCache.set(`discogs:${debouncedSearchTerm}`, results);
             } catch (error) {
               console.log("Switching back to iTunes");
               setCurrentAPI("itunes");
               results = await searchItunes(debouncedSearchTerm);
+              searchCache.set(`itunes:${debouncedSearchTerm}`, results);
             }
           }
         } else {
           try {
             results = await searchDiscogs(debouncedSearchTerm);
+            searchCache.set(cacheKey, results);
           } catch (error) {
             console.log("Switching back to iTunes");
             setCurrentAPI("itunes");
             results = await searchItunes(debouncedSearchTerm);
+            searchCache.set(`itunes:${debouncedSearchTerm}`, results);
           }
         }
 
