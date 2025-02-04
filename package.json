@@ -2,7 +2,7 @@
   "name": "big-pictures",
   "version": "0.1.0",
   "private": true,
-  "homepage": "https://curroscube.github.io/big-pictures",
+  "homepage": "https://karan-gera.github.io/big-pictures",
   "dependencies": {
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",
