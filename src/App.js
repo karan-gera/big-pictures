@@ -32,9 +32,10 @@ function App() {
   }, [searchTerm]);
 
   const getFormattedImageUrl = useCallback((url, size = "600x600") => {
-    // Extract the base URL up to .jpg
-    const baseUrl = url.match(/(.*?\.jpg)/)[0];
-    return `${baseUrl}/${size}bb.jpg`;
+    // Remove any existing size parameters and get base URL
+    const baseUrl = url.split("/")[0];
+    const pathParts = url.split("/").slice(1, -1); // Get all parts except last one
+    return `${baseUrl}/${pathParts.join("/")}/${size}bb.jpg`;
   }, []);
 
   const searchMusicBrainz = useCallback(async (term) => {
