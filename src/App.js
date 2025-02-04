@@ -131,6 +131,43 @@ function App() {
     [getFormattedImageUrl]
   );
 
+  const searchDiscogs = useCallback(async (term) => {
+    try {
+      const response = await fetch(
+        `https://api.discogs.com/database/search?q=${encodeURIComponent(
+          term
+        )}&type=release&per_page=20`,
+        {
+          headers: {
+            Authorization:
+              "Discogs key=jHfarpEmBSFYbIXSJlEd, secret=MKHAyOJLtiJjKZBwdzdhcZcnQvvKoQTG",
+            "User-Agent": "curroscube",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Discogs API error");
+      }
+
+      const data = await response.json();
+
+      return data.results
+        .map((release) => ({
+          id: release.id,
+          title: release.title.split(" - ")[1] || release.title,
+          artist: release.title.split(" - ")[0] || "Unknown Artist",
+          year: release.year || "Unknown",
+          imageUrl: release.thumb,
+          originalImageUrl: release.cover_image,
+        }))
+        .filter((album) => album.imageUrl);
+    } catch (error) {
+      console.error("Discogs search error:", error);
+      throw error;
+    }
+  }, []);
+
   // Only make API call when debouncedSearchTerm changes
   useEffect(() => {
     const searchAlbums = async () => {
@@ -143,19 +180,38 @@ function App() {
       try {
         let results;
 
-        // Try iTunes first
+        // Try each API in sequence
         if (currentAPI === "itunes") {
           try {
             results = await searchItunes(debouncedSearchTerm);
           } catch (error) {
             console.log("Switching to MusicBrainz due to iTunes error");
             setCurrentAPI("musicbrainz");
-            results = await searchMusicBrainz(debouncedSearchTerm);
+            try {
+              results = await searchMusicBrainz(debouncedSearchTerm);
+            } catch (error) {
+              console.log("Switching to Discogs due to MusicBrainz error");
+              setCurrentAPI("discogs");
+              results = await searchDiscogs(debouncedSearchTerm);
+            }
           }
-        } else {
-          // Try MusicBrainz
+        } else if (currentAPI === "musicbrainz") {
           try {
             results = await searchMusicBrainz(debouncedSearchTerm);
+          } catch (error) {
+            console.log("Switching to Discogs due to MusicBrainz error");
+            setCurrentAPI("discogs");
+            try {
+              results = await searchDiscogs(debouncedSearchTerm);
+            } catch (error) {
+              console.log("Switching back to iTunes");
+              setCurrentAPI("itunes");
+              results = await searchItunes(debouncedSearchTerm);
+            }
+          }
+        } else {
+          try {
+            results = await searchDiscogs(debouncedSearchTerm);
           } catch (error) {
             console.log("Switching back to iTunes");
             setCurrentAPI("itunes");
@@ -176,7 +232,13 @@ function App() {
     };
 
     searchAlbums();
-  }, [debouncedSearchTerm, currentAPI, searchItunes, searchMusicBrainz]);
+  }, [
+    debouncedSearchTerm,
+    currentAPI,
+    searchItunes,
+    searchMusicBrainz,
+    searchDiscogs,
+  ]);
 
   const handleSearch = useCallback((event) => {
     const term = event.target.value;
