@@ -3,19 +3,52 @@
   border-radius: 12px;
   padding: 15px;
   box-shadow: none;
-  transition: transform 0.2s ease;
-  opacity: 0;
+  transition: transform 0s;
   animation: fadeIn 0.5s ease forwards;
   cursor: pointer;
   outline: none;
 }
 
-.album-card:hover, .album-card:focus {
+.album-card.fade-out {
+  animation: fadeOut 0.3s ease forwards;
+}
+
+.album-card:hover {
   transform: translateY(-5px);
+  transition: transform 0.2s ease;
 }
 
 .album-card:focus-visible {
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
+}
+
+.image-container {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  background: #1a1a1a;
+}
+
+.loading-spinner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 32px;
+  height: 32px;
+  background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgBAMAAACBVGfHAAAABGdBTUEAALGPC/xhBQAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAAAD1BMVEUAAAD///////////////+PQt5oAAAABHRSTlMAf7+fX8KDTQAAAAFiS0dEBI9o2VEAAAAHdElNRQfiBhYQDR0KXz6BAAABDklEQVQoz12QsU7DMBRFXUcVqhQhIVXqDEgVA+pWFib+ACFl6B+0LF2YsvULWoaSqQPq2C9AiI0/QEwgJEaQGNh4/WwnCXCl6Nzjo2f73YRQGYUHaSgV0PLvwz0Zqo9kBvCQhNJARwRnWQrd5wKwOYNk8VVH4KoBHI1EJwCzRxC9QnB6YuG+A7iKxLhvYO44qC8FjlVs4MnBk4PxF/ymeAHPHjrg0eRMGLjEwIxg7uANvFALXxQXBi4pLhz0KN4dDCi+KL4d3Hj4oVhSDMDBGGDhYEIxdTAVWDmYUcwdzAU2DhYUSwcrgbWDNcXGwVbgx8Evxc7BXuCP4kBxFDhRnCkuAmcbF4qrwJXiJnD7B/q0sSDHzBqkAAAAJXRFWHRkYXRlOmNyZWF0ZQAyMDE4LTA2LTIyVDE2OjEzOjI5LTA0OjAwx9BqeQAAACV0RVh0ZGF0ZTptb2RpZnkAMjAxOC0wNi0yMlQxNjoxMzoyOS0wNDowMLaN0sUAAAAASUVORK5CYII=");
+  background-size: contain;
+  animation: spin 1s steps(8) infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
 }
 
 @keyframes fadeIn {
@@ -29,23 +62,29 @@
   }
 }
 
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
 .album-image {
   width: 100%;
-  aspect-ratio: 1;
+  height: 100%;
   object-fit: cover;
   border-radius: 8px;
-  margin-bottom: 15px;
-  opacity: 0;
-  animation: fadeIn 0.5s ease forwards 0.2s;
 }
 
 .album-title {
   font-size: 1.1rem;
-  font-weight: 500;
+  font-weight: 700;
   margin: 8px 0;
   color: white;
-  opacity: 0;
-  animation: fadeIn 0.5s ease forwards 0.3s;
   letter-spacing: -0.01em;
 }
 
@@ -54,16 +93,13 @@
   font-weight: 400;
   color: #cccccc;
   margin: 4px 0;
-  opacity: 0;
-  animation: fadeIn 0.5s ease forwards 0.4s;
   letter-spacing: -0.01em;
 }
 
 .album-year {
   font-size: 0.8rem;
   font-weight: 400;
+  font-style: italic;
   color: #999999;
-  opacity: 0;
-  animation: fadeIn 0.5s ease forwards 0.5s;
   letter-spacing: -0.01em;
 } 

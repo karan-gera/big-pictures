@@ -1,7 +1,9 @@
-import React from "react";
+import React, { useState } from "react";
 import "./Result.css";
 
 const Result = ({ album }) => {
+  const [imageLoaded, setImageLoaded] = useState(false);
+
   const getHighResImageUrl = (url) => {
     // Extract the base URL up to .jpg
     const baseUrl = url.match(/(.*?\.jpg)/)[0];
@@ -13,6 +15,10 @@ const Result = ({ album }) => {
     window.open(highResUrl, "_blank");
   };
 
+  const handleImageLoad = () => {
+    setImageLoaded(true);
+  };
+
   return (
     <div
       className="album-card"
@@ -20,11 +26,16 @@ const Result = ({ album }) => {
       role="button"
       tabIndex={0}
     >
-      <img
-        src={album.imageUrl}
-        alt={`${album.title} cover`}
-        className="album-image"
-      />
+      <div className="image-container">
+        {!imageLoaded && <div className="loading-spinner" />}
+        <img
+          src={album.imageUrl}
+          alt={`${album.title} cover`}
+          className="album-image"
+          onLoad={handleImageLoad}
+          style={{ opacity: imageLoaded ? 1 : 0 }}
+        />
+      </div>
       <div className="album-title">{album.title}</div>
       <div className="album-artist">{album.artist}</div>
       <div className="album-year">{album.year}</div>

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import Result from "./components/Result";
 import "./App.css";
 
@@ -8,6 +8,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [debouncedResults, setDebouncedResults] = useState([]);
   const [currentAPI, setCurrentAPI] = useState("itunes"); // Track which API we're using
+  const resultsRef = useRef(null);
 
   // Handle the debounced search term
   useEffect(() => {
@@ -168,30 +169,69 @@ function App() {
   const handleSearch = useCallback((event) => {
     const term = event.target.value;
     setSearchTerm(term);
-    setDebouncedResults([]); // Clear results immediately when typing
+
+    // Add fade-out class to existing results
+    if (resultsRef.current) {
+      const cards = resultsRef.current.getElementsByClassName("album-card");
+      Array.from(cards).forEach((card) => {
+        card.classList.add("fade-out");
+      });
+    }
+
+    // Clear results after fade-out animation
+    setTimeout(() => {
+      setDebouncedResults([]);
+    }, 300);
+  }, []);
+
+  const handleTitleClick = useCallback(() => {
+    // Add fade-out class to existing results
+    if (resultsRef.current) {
+      const cards = resultsRef.current.getElementsByClassName("album-card");
+      Array.from(cards).forEach((card) => {
+        card.classList.add("fade-out");
+      });
+    }
+
+    // Clear results after fade-out animation
+    setTimeout(() => {
+      setSearchTerm("");
+      setDebouncedResults([]);
+    }, 300);
   }, []);
 
   return (
     <div className="App">
-      <h1 className="site-title">big.pictures</h1>
-      <div className="search-container">
-        <input
-          type="text"
-          className="search-input"
-          placeholder="Enter Album/Single Name"
-          value={searchTerm}
-          onChange={handleSearch}
-        />
+      <div className="header-section">
+        <h1
+          className="site-title"
+          onClick={handleTitleClick}
+          role="button"
+          tabIndex={0}
+        >
+          big.pictures
+        </h1>
+        <div className="search-container">
+          <input
+            type="text"
+            className="search-input"
+            placeholder="Enter Album/Single Name"
+            value={searchTerm}
+            onChange={handleSearch}
+          />
+        </div>
       </div>
 
-      <div className="results-grid">
-        {isLoading ? (
-          <div className="loading">Searching...</div>
-        ) : (
-          debouncedResults.map((album) => (
-            <Result key={album.id} album={album} />
-          ))
-        )}
+      <div className="results-section">
+        <div className="results-grid" ref={resultsRef}>
+          {isLoading ? (
+            <div className="loading">Searching...</div>
+          ) : (
+            debouncedResults.map((album) => (
+              <Result key={album.id} album={album} />
+            ))
+          )}
+        </div>
       </div>
     </div>
   );
