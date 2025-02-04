@@ -34,6 +34,7 @@ function App() {
   const [useJPG, setUseJPG] = useState(prefs.format);
   const [isGridView, setIsGridView] = useState(prefs.view);
   const resultsRef = useRef(null);
+  const searchInputRef = useRef(null);
 
   // Listen for OS theme changes
   useEffect(() => {
@@ -430,6 +431,39 @@ function App() {
     }, 300);
   }, []);
 
+  // Add global keypress handler
+  useEffect(() => {
+    const handleKeyPress = (e) => {
+      // Ignore if user is typing in an input or if it's a special key
+      if (
+        e.target.tagName === "INPUT" ||
+        e.target.tagName === "TEXTAREA" ||
+        e.metaKey ||
+        e.ctrlKey ||
+        e.altKey ||
+        e.key === "Tab" ||
+        e.key === "Escape" ||
+        e.key === "Enter" ||
+        e.key === "Backspace" ||
+        e.key === "Delete" ||
+        e.key === "ArrowUp" ||
+        e.key === "ArrowDown" ||
+        e.key === "ArrowLeft" ||
+        e.key === "ArrowRight"
+      ) {
+        return;
+      }
+
+      // Focus search input and simulate typing
+      if (searchInputRef.current) {
+        searchInputRef.current.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyPress);
+    return () => document.removeEventListener("keydown", handleKeyPress);
+  }, []);
+
   return (
     <div className="App">
       <div className="header-controls">
@@ -484,6 +518,7 @@ function App() {
         </h1>
         <div className="search-container">
           <input
+            ref={searchInputRef}
             type="text"
             className="search-input"
             placeholder="Enter Album/Single Name"
