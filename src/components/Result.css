@@ -1,0 +1,69 @@
+.album-card {
+  background: transparent;
+  border-radius: 12px;
+  padding: 15px;
+  box-shadow: none;
+  transition: transform 0.2s ease;
+  opacity: 0;
+  animation: fadeIn 0.5s ease forwards;
+  cursor: pointer;
+  outline: none;
+}
+
+.album-card:hover, .album-card:focus {
+  transform: translateY(-5px);
+}
+
+.album-card:focus-visible {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.album-image {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 8px;
+  margin-bottom: 15px;
+  opacity: 0;
+  animation: fadeIn 0.5s ease forwards 0.2s;
+}
+
+.album-title {
+  font-size: 1.1rem;
+  font-weight: 500;
+  margin: 8px 0;
+  color: white;
+  opacity: 0;
+  animation: fadeIn 0.5s ease forwards 0.3s;
+  letter-spacing: -0.01em;
+}
+
+.album-artist {
+  font-size: 0.9rem;
+  font-weight: 400;
+  color: #cccccc;
+  margin: 4px 0;
+  opacity: 0;
+  animation: fadeIn 0.5s ease forwards 0.4s;
+  letter-spacing: -0.01em;
+}
+
+.album-year {
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: #999999;
+  opacity: 0;
+  animation: fadeIn 0.5s ease forwards 0.5s;
+  letter-spacing: -0.01em;
+} 
