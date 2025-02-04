@@ -12,6 +12,19 @@
   --text-color: var(--color-dark);
 }
 
+html {
+  background-color: var(--bg-color);
+  transition: background-color 0.3s ease;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-color);
+  overflow-x: hidden;
+  transition: background-color 0.3s ease;
+}
+
 .App {
   text-align: center;
   padding: 20px;
@@ -27,14 +40,6 @@
   overflow-x: hidden;
   box-sizing: border-box;
   transition: background-color 0.3s ease, color 0.3s ease;
-}
-
-body {
-  margin: 0;
-  padding: 0;
-  background-color: var(--bg-color);
-  overflow-x: hidden;
-  transition: background-color 0.3s ease;
 }
 
 .App-logo {
