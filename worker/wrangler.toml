@@ -1,0 +1,9 @@
+name = "album-search-api"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+
+[vars]
+# These will be set in the Cloudflare dashboard
+LASTFM_API_KEY = ""
+DISCOGS_KEY = ""
+DISCOGS_SECRET = "" 

@@ -99,29 +99,12 @@ function App() {
     return () => clearTimeout(timeoutId);
   }, [searchTerm]);
 
-  const getFormattedImageUrl = useCallback(
-    (url, size = "600x600") => {
-      // Remove any existing size parameters and get base URL
-      const baseUrl = url.split("/")[0];
-      const pathParts = url.split("/").slice(1, -1); // Get all parts except last one
-      return `${baseUrl}/${pathParts.join("/")}/${size}bb.${
-        useJPG ? "jpg" : "png"
-      }`;
-    },
-    [useJPG]
-  );
-
   const searchMusicBrainz = useCallback(async (term) => {
     try {
       const response = await fetch(
-        `https://musicbrainz.org/ws/2/release/?query=${encodeURIComponent(
+        `https://album-search-api.karanrajsinghgera.workers.dev/?q=${encodeURIComponent(
           term
-        )}&fmt=json&limit=20`,
-        {
-          headers: {
-            "User-Agent": "curroscube (karanrajsinghgera@gmail.com)", // Replace with your contact
-          },
-        }
+        )}&api=musicbrainz`
       );
 
       if (!response.ok) {
@@ -129,95 +112,39 @@ function App() {
       }
 
       const data = await response.json();
-
-      // Map MusicBrainz results to our format
-      const formattedAlbums = await Promise.all(
-        data.releases.map(async (release) => {
-          // Get cover art if available
-          let coverArtUrl = null;
-          try {
-            const artResponse = await fetch(
-              `https://coverartarchive.org/release/${release.id}`,
-              {
-                headers: {
-                  "User-Agent": "big.pictures/1.0.0 (your@email.com)", // Replace with your contact
-                },
-              }
-            );
-            if (artResponse.ok) {
-              const artData = await artResponse.json();
-              coverArtUrl = artData.images[0]?.image;
-            }
-          } catch (error) {
-            console.error("Cover art fetch error:", error);
-          }
-
-          return {
-            id: release.id,
-            title: release.title,
-            artist: release["artist-credit"]?.[0]?.name || "Unknown Artist",
-            year: release.date
-              ? new Date(release.date).getFullYear()
-              : "Unknown",
-            imageUrl: coverArtUrl || "placeholder-image-url.jpg",
-            originalImageUrl: coverArtUrl || "placeholder-image-url.jpg",
-          };
-        })
-      );
-
-      return formattedAlbums.filter(
-        (album) => album.imageUrl !== "placeholder-image-url.jpg"
-      );
+      return data;
     } catch (error) {
       console.error("MusicBrainz search error:", error);
       throw error;
     }
   }, []);
 
-  const searchItunes = useCallback(
-    async (term) => {
-      try {
-        const response = await fetch(
-          `https://itunes.apple.com/search?term=${encodeURIComponent(
-            term
-          )}&entity=album&limit=20`
-        );
+  const searchItunes = useCallback(async (term) => {
+    try {
+      const response = await fetch(
+        `https://album-search-api.karanrajsinghgera.workers.dev/?q=${encodeURIComponent(
+          term
+        )}&api=itunes`
+      );
 
-        if (!response.ok) {
-          throw new Error("iTunes API error");
-        }
-
-        const data = await response.json();
-
-        return data.results.map((album) => ({
-          id: album.collectionId,
-          title: album.collectionName,
-          artist: album.artistName,
-          year: new Date(album.releaseDate).getFullYear(),
-          imageUrl: getFormattedImageUrl(album.artworkUrl100),
-          originalImageUrl: album.artworkUrl100,
-        }));
-      } catch (error) {
-        console.error("iTunes search error:", error);
-        throw error;
+      if (!response.ok) {
+        throw new Error("iTunes API error");
       }
-    },
-    [getFormattedImageUrl]
-  );
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error("iTunes search error:", error);
+      throw error;
+    }
+  }, []);
 
   const searchDiscogs = useCallback(async (term) => {
     try {
       const response = await fetch(
-        `https://api.discogs.com/database/search?q=${encodeURIComponent(
+        `https://album-search-api.karanrajsinghgera.workers.dev/?q=${encodeURIComponent(
           term
-        )}&type=release&per_page=20`,
-        {
-          headers: {
-            Authorization:
-              "Discogs key=jHfarpEmBSFYbIXSJlEd, secret=MKHAyOJLtiJjKZBwdzdhcZcnQvvKoQTG",
-            "User-Agent": "curroscube",
-          },
-        }
+        )}&api=discogs`
       );
 
       if (!response.ok) {
@@ -225,17 +152,7 @@ function App() {
       }
 
       const data = await response.json();
-
-      return data.results
-        .map((release) => ({
-          id: release.id,
-          title: release.title.split(" - ")[1] || release.title,
-          artist: release.title.split(" - ")[0] || "Unknown Artist",
-          year: release.year || "Unknown",
-          imageUrl: release.thumb,
-          originalImageUrl: release.cover_image,
-        }))
-        .filter((album) => album.imageUrl);
+      return data;
     } catch (error) {
       console.error("Discogs search error:", error);
       throw error;
@@ -244,11 +161,10 @@ function App() {
 
   const searchLastFm = useCallback(async (term) => {
     try {
-      const API_KEY = "e4b5091e198eeec04d25bd50cadfd01e"; // You'll need to replace this with your API key
       const response = await fetch(
-        `https://ws.audioscrobbler.com/2.0/?method=album.search&album=${encodeURIComponent(
+        `https://album-search-api.karanrajsinghgera.workers.dev/?q=${encodeURIComponent(
           term
-        )}&api_key=${API_KEY}&format=json&limit=20`
+        )}&api=lastfm`
       );
 
       if (!response.ok) {
@@ -256,19 +172,7 @@ function App() {
       }
 
       const data = await response.json();
-      const albums = data.results?.albummatches?.album || [];
-
-      return albums
-        .map((album) => ({
-          id: `lastfm-${album.mbid || album.url.split("/").pop()}`,
-          title: album.name,
-          artist: album.artist,
-          year: "N/A", // Last.fm doesn't provide year in search results
-          imageUrl: album.image[3]?.["#text"] || album.image[2]?.["#text"], // Get largest available image
-          originalImageUrl:
-            album.image[3]?.["#text"] || album.image[2]?.["#text"],
-        }))
-        .filter((album) => album.imageUrl);
+      return data;
     } catch (error) {
       console.error("Last.fm search error:", error);
       throw error;
