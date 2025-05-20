@@ -11,7 +11,7 @@ class LRUCache {
     try {
       const stored = localStorage.getItem(this.STORAGE_KEY);
       if (stored) {
-        const { cache, timestamp } = JSON.parse(stored);
+        const { cache } = JSON.parse(stored);
 
         // Convert the plain object back to a Map
         this.cache = new Map(Object.entries(cache));
