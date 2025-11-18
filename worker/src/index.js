@@ -42,14 +42,26 @@ async function searchLastFm(term) {
   const albums = data.results?.albummatches?.album || [];
 
   return albums
-    .map((album) => ({
-      id: `lastfm-${album.mbid || album.url.split("/").pop()}`,
-      title: album.name,
-      artist: album.artist,
-      year: "N/A",
-      imageUrl: album.image[3]?.["#text"] || album.image[2]?.["#text"],
-      originalImageUrl: album.image[3]?.["#text"] || album.image[2]?.["#text"],
-    }))
+    .map((album, index) => {
+      // Create unique ID: use MBID if available, otherwise combine album name and artist
+      let uniqueId;
+      if (album.mbid) {
+        uniqueId = album.mbid;
+      } else {
+        // Create a unique identifier from album name and artist
+        const albumSlug = album.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        const artistSlug = album.artist.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        uniqueId = `${albumSlug}-${artistSlug}-${index}`;
+      }
+      return {
+        id: `lastfm-${uniqueId}`,
+        title: album.name,
+        artist: album.artist,
+        year: "N/A",
+        imageUrl: album.image[3]?.["#text"] || album.image[2]?.["#text"],
+        originalImageUrl: album.image[3]?.["#text"] || album.image[2]?.["#text"],
+      };
+    })
     .filter((album) => album.imageUrl);
 }
 
@@ -78,6 +90,95 @@ async function searchDiscogs(term) {
       originalImageUrl: release.cover_image,
     }))
     .filter((album) => album.imageUrl);
+}
+
+// Search MusicBrainz API
+async function searchMusicBrainz(term) {
+  // Search for releases
+  const response = await fetch(
+    `https://musicbrainz.org/ws/2/release/?query=${encodeURIComponent(
+      term
+    )}&limit=20&fmt=json`,
+    {
+      headers: {
+        "User-Agent": "bigpictures/1.0.0",
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error("MusicBrainz API error");
+  }
+
+  const data = await response.json();
+  const releases = data.releases || [];
+
+  // Process releases and get cover art
+  const results = await Promise.all(
+    releases.map(async (release) => {
+      // Extract artist name from artist-credit array
+      const artistNames = release["artist-credit"]
+        ? release["artist-credit"].map((ac) => {
+            // Handle both formats: {artist: {name: ...}} and {name: ...}
+            if (ac.artist && ac.artist.name) {
+              return ac.artist.name;
+            }
+            return ac.name || "";
+          })
+        : [];
+      const artist = artistNames.filter((name) => name).join(", ") || "Unknown Artist";
+
+      // Extract year from date
+      const dateStr = release.date || "";
+      const year = dateStr ? new Date(dateStr).getFullYear() : "Unknown";
+
+      // Get cover art from Cover Art Archive
+      const mbid = release.id;
+      let imageUrl = null;
+      let originalImageUrl = null;
+
+      try {
+        // Try to get cover art - use front-250 for thumbnail
+        const coverArtResponse = await fetch(
+          `https://coverartarchive.org/release/${mbid}/front-250`,
+          {
+            redirect: "follow",
+          }
+        );
+        if (coverArtResponse.ok) {
+          imageUrl = coverArtResponse.url;
+          // For original, try to get the full-size image
+          // The front endpoint redirects to the full-size image URL
+          const largeResponse = await fetch(
+            `https://coverartarchive.org/release/${mbid}/front`,
+            {
+              redirect: "follow",
+            }
+          );
+          if (largeResponse.ok) {
+            originalImageUrl = largeResponse.url;
+          } else {
+            // Fallback to thumbnail if large version fails
+            originalImageUrl = imageUrl;
+          }
+        }
+      } catch (error) {
+        // Cover art not available, skip this release
+      }
+
+      return {
+        id: mbid,
+        title: release.title,
+        artist: artist,
+        year: year,
+        imageUrl: imageUrl,
+        originalImageUrl: originalImageUrl || imageUrl,
+      };
+    })
+  );
+
+  // Filter out releases without cover art
+  return results.filter((album) => album.imageUrl);
 }
 
 // Main request handler
@@ -117,6 +218,9 @@ async function handleRequest(request) {
         break;
       case "discogs":
         results = await searchDiscogs(searchTerm);
+        break;
+      case "musicbrainz":
+        results = await searchMusicBrainz(searchTerm);
         break;
       default:
         return new Response("Invalid API specified", {
