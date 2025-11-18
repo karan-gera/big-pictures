@@ -19,7 +19,17 @@ async function searchItunes(term) {
       term
     )}&entity=album&limit=20`
   );
+  
+  if (!response.ok) {
+    throw new Error(`iTunes API returned ${response.status}`);
+  }
+  
   const data = await response.json();
+  
+  if (!data.results || !Array.isArray(data.results)) {
+    throw new Error("Invalid iTunes API response");
+  }
+  
   return data.results.map((album) => ({
     id: album.collectionId,
     title: album.collectionName,
@@ -38,6 +48,11 @@ async function searchLastFm(term) {
       term
     )}&api_key=${API_KEY}&format=json&limit=20`
   );
+  
+  if (!response.ok) {
+    throw new Error(`Last.fm API returned ${response.status}`);
+  }
+  
   const data = await response.json();
   const albums = data.results?.albummatches?.album || [];
 
@@ -78,7 +93,16 @@ async function searchDiscogs(term) {
       },
     }
   );
+  
+  if (!response.ok) {
+    throw new Error(`Discogs API returned ${response.status}`);
+  }
+  
   const data = await response.json();
+  
+  if (!data.results || !Array.isArray(data.results)) {
+    throw new Error("Invalid Discogs API response");
+  }
 
   return data.results
     .map((release) => ({

@@ -135,11 +135,16 @@ function App() {
 
       clearTimeout(timeoutId);
 
-      if (!response.ok) {
-        throw new Error("MusicBrainz API error");
+      const data = await response.json();
+      
+      if (!response.ok || (data.error && !Array.isArray(data))) {
+        throw new Error(data.error || "MusicBrainz API error");
+      }
+      
+      if (!Array.isArray(data)) {
+        throw new Error("Invalid MusicBrainz API response");
       }
 
-      const data = await response.json();
       return data;
     } catch (error) {
       if (error.name === 'AbortError') {
@@ -158,11 +163,16 @@ function App() {
         )}&api=itunes`
       );
 
-      if (!response.ok) {
-        throw new Error("iTunes API error");
+      const data = await response.json();
+      
+      if (!response.ok || (data.error && !Array.isArray(data))) {
+        throw new Error(data.error || "iTunes API error");
+      }
+      
+      if (!Array.isArray(data)) {
+        throw new Error("Invalid iTunes API response");
       }
 
-      const data = await response.json();
       return data;
     } catch (error) {
       console.error("iTunes search error:", error);
@@ -178,11 +188,16 @@ function App() {
         )}&api=discogs`
       );
 
-      if (!response.ok) {
-        throw new Error("Discogs API error");
+      const data = await response.json();
+      
+      if (!response.ok || (data.error && !Array.isArray(data))) {
+        throw new Error(data.error || "Discogs API error");
+      }
+      
+      if (!Array.isArray(data)) {
+        throw new Error("Invalid Discogs API response");
       }
 
-      const data = await response.json();
       return data;
     } catch (error) {
       console.error("Discogs search error:", error);
@@ -198,11 +213,16 @@ function App() {
         )}&api=lastfm`
       );
 
-      if (!response.ok) {
-        throw new Error("Last.fm API error");
+      const data = await response.json();
+      
+      if (!response.ok || (data.error && !Array.isArray(data))) {
+        throw new Error(data.error || "Last.fm API error");
+      }
+      
+      if (!Array.isArray(data)) {
+        throw new Error("Invalid Last.fm API response");
       }
 
-      const data = await response.json();
       return data;
     } catch (error) {
       console.error("Last.fm search error:", error);
