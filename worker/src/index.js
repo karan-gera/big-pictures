@@ -4,27 +4,48 @@ const USER_AGENT = "bigpictures/1.0.0 ( https://bigpictures.xyz )";
 // Last.fm returns this grey star image when an album has no artwork
 const LASTFM_PLACEHOLDER = "2a96cbd8b46e442fc41c2b86b821562f";
 
-// CORS headers
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
-};
+// Only these sites may call the worker from a browser, so other sites can't
+// use it as a proxy and spend our API quota
+const ALLOWED_ORIGINS = [
+  /^https:\/\/(www\.)?bigpictures\.xyz$/,
+  /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/,
+];
 
-// Handle OPTIONS request for CORS
-async function handleOptions(request) {
-  return new Response(null, {
-    headers: corsHeaders,
+// Search results barely change, so cache them at the edge. Every cached hit is
+// a request that doesn't count against the APIs' per-IP rate limits.
+const CACHE_TTL_SECONDS = 6 * 60 * 60;
+
+function isAllowedOrigin(origin) {
+  return ALLOWED_ORIGINS.some((pattern) => pattern.test(origin));
+}
+
+function corsHeaders(origin) {
+  if (!origin) return {};
+  return {
+    "Access-Control-Allow-Origin": origin,
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    Vary: "Origin",
+  };
+}
+
+function jsonResponse(body, status, origin, extraHeaders = {}) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      "Content-Type": "application/json",
+      ...corsHeaders(origin),
+      ...extraHeaders,
+    },
   });
 }
 
 // Search Last.fm API
-async function searchLastFm(term) {
-  const API_KEY = LASTFM_API_KEY;
+async function searchLastFm(term, env) {
   const response = await fetch(
     `https://ws.audioscrobbler.com/2.0/?method=album.search&album=${encodeURIComponent(
       term
-    )}&api_key=${API_KEY}&format=json&limit=20`
+    )}&api_key=${env.LASTFM_API_KEY}&format=json&limit=20`
   );
   
   if (!response.ok) {
@@ -61,14 +82,14 @@ async function searchLastFm(term) {
 }
 
 // Search Discogs API
-async function searchDiscogs(term) {
+async function searchDiscogs(term, env) {
   const response = await fetch(
     `https://api.discogs.com/database/search?q=${encodeURIComponent(
       term
     )}&type=release&per_page=20`,
     {
       headers: {
-        Authorization: `Discogs key=${DISCOGS_KEY}, secret=${DISCOGS_SECRET}`,
+        Authorization: `Discogs key=${env.DISCOGS_KEY}, secret=${env.DISCOGS_SECRET}`,
         "User-Agent": USER_AGENT,
       },
     }
@@ -138,6 +159,8 @@ async function searchMusicBrainz(term) {
 
       // Check Cover Art Archive without following the redirect: 307 means the
       // art exists, 404 means it doesn't. Following it would download the image.
+      // The redirect target is the thumbnail itself, so the browser can load it
+      // without the extra hop.
       const mbid = release.id;
       const coverArtBase = `https://coverartarchive.org/release/${mbid}`;
       let imageUrl = null;
@@ -150,7 +173,8 @@ async function searchMusicBrainz(term) {
           headers: { "User-Agent": USER_AGENT },
         });
         if (coverArtResponse.status >= 300 && coverArtResponse.status < 400) {
-          imageUrl = `${coverArtBase}/front-250`;
+          imageUrl =
+            coverArtResponse.headers.get("Location") || `${coverArtBase}/front-250`;
           originalImageUrl = `${coverArtBase}/front`;
         }
       } catch (error) {
@@ -172,70 +196,83 @@ async function searchMusicBrainz(term) {
   return results.filter((album) => album.imageUrl);
 }
 
-// Main request handler
-async function handleRequest(request) {
-  // Handle CORS preflight
-  if (request.method === "OPTIONS") {
-    return handleOptions(request);
-  }
+const SEARCHERS = {
+  // iTunes is queried directly from the browser - Apple blocks Worker IPs
+  lastfm: searchLastFm,
+  discogs: searchDiscogs,
+  musicbrainz: searchMusicBrainz,
+};
 
-  // Only allow GET requests
-  if (request.method !== "GET") {
-    return new Response("Method not allowed", {
-      status: 405,
-      headers: corsHeaders,
-    });
-  }
+export default {
+  async fetch(request, env, ctx) {
+    const origin = request.headers.get("Origin");
 
-  try {
+    // Browsers always send Origin on cross-site requests. Requests without one
+    // (curl, server-side) are allowed so the worker stays easy to test.
+    if (origin && !isAllowedOrigin(origin)) {
+      return new Response("Origin not allowed", { status: 403 });
+    }
+
+    if (request.method === "OPTIONS") {
+      return new Response(null, { status: 204, headers: corsHeaders(origin) });
+    }
+
+    if (request.method !== "GET") {
+      return new Response("Method not allowed", {
+        status: 405,
+        headers: corsHeaders(origin),
+      });
+    }
+
     const url = new URL(request.url);
-    const searchTerm = url.searchParams.get("q");
-    // iTunes is queried directly from the browser - Apple blocks Worker IPs
+    const searchTerm = url.searchParams.get("q")?.trim();
     const api = url.searchParams.get("api");
 
     if (!searchTerm) {
       return new Response("Search term is required", {
         status: 400,
-        headers: corsHeaders,
+        headers: corsHeaders(origin),
       });
     }
 
-    let results;
-    switch (api) {
-      case "lastfm":
-        results = await searchLastFm(searchTerm);
-        break;
-      case "discogs":
-        results = await searchDiscogs(searchTerm);
-        break;
-      case "musicbrainz":
-        results = await searchMusicBrainz(searchTerm);
-        break;
-      default:
-        return new Response("Invalid API specified", {
-          status: 400,
-          headers: corsHeaders,
-        });
+    const search = SEARCHERS[api];
+    if (!search) {
+      return new Response("Invalid API specified", {
+        status: 400,
+        headers: corsHeaders(origin),
+      });
     }
 
-    return new Response(JSON.stringify(results), {
-      headers: {
-        "Content-Type": "application/json",
-        ...corsHeaders,
-      },
-    });
-  } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: {
-        "Content-Type": "application/json",
-        ...corsHeaders,
-      },
-    });
-  }
-}
+    // Cache by API and normalized term. CORS headers are added per request,
+    // so the cached copy has none.
+    const cache = caches.default;
+    const cacheKey = new Request(
+      `${url.origin}/?api=${api}&q=${encodeURIComponent(searchTerm.toLowerCase())}`
+    );
 
-// Register the main request handler
-addEventListener("fetch", (event) => {
-  event.respondWith(handleRequest(event.request));
-});
+    const cached = await cache.match(cacheKey);
+    if (cached) {
+      return jsonResponse(await cached.json(), 200, origin, { "X-Cache": "HIT" });
+    }
+
+    let results;
+    try {
+      results = await search(searchTerm, env);
+    } catch (error) {
+      return jsonResponse({ error: error.message }, 502, origin);
+    }
+
+    // Don't cache empty results: they may come from an upstream hiccup
+    if (results.length > 0) {
+      const cacheable = new Response(JSON.stringify(results), {
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": `public, max-age=${CACHE_TTL_SECONDS}`,
+        },
+      });
+      ctx.waitUntil(cache.put(cacheKey, cacheable));
+    }
+
+    return jsonResponse(results, 200, origin, { "X-Cache": "MISS" });
+  },
+};
