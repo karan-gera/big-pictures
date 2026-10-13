@@ -89,6 +89,34 @@ test.each(['Enter', ' '])('holding %p down opens the image only once', (key) => 
   open.mockRestore();
 });
 
+test('a Space press abandoned by moving focus away does not activate later', () => {
+  const open = jest.spyOn(window, 'open').mockImplementation(() => {});
+  renderCard();
+  const card = screen.getByRole('button');
+
+  // Press on the card, move focus away, release elsewhere
+  fireEvent.keyDown(card, { key: ' ' });
+  fireEvent.blur(card);
+  // Focus comes back and a Space press that started elsewhere is released here
+  fireEvent.keyUp(card, { key: ' ' });
+
+  expect(open).not.toHaveBeenCalled();
+  open.mockRestore();
+});
+
+test('a held Space repeating onto the card after focus moved does not activate it', () => {
+  const open = jest.spyOn(window, 'open').mockImplementation(() => {});
+  renderCard();
+  const card = screen.getByRole('button');
+
+  // The initial press happened elsewhere; only repeats reach this card
+  fireEvent.keyDown(card, { key: ' ', repeat: true });
+  fireEvent.keyUp(card, { key: ' ' });
+
+  expect(open).not.toHaveBeenCalled();
+  open.mockRestore();
+});
+
 test('releasing Space without pressing it on the card does nothing', () => {
   const open = jest.spyOn(window, 'open').mockImplementation(() => {});
   renderCard();

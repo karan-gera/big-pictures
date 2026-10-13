@@ -1,6 +1,7 @@
 // Make a role="button" element respond to the keyboard like a native button:
 // Enter activates on press (once, ignoring key repeat), Space activates on
-// release, and only if the press started on the same element.
+// release, and only if the press started on the same element and focus never
+// left it in between.
 export const buttonKeyHandlers = (handler) => ({
   onKeyDown: (event) => {
     if (event.nativeEvent.isComposing) return;
@@ -9,9 +10,10 @@ export const buttonKeyHandlers = (handler) => ({
       event.preventDefault();
       if (!event.repeat) handler();
     } else if (event.key === " ") {
-      // Stops Space from scrolling the page
+      // Stops Space from scrolling the page, including on key repeat
       event.preventDefault();
-      event.currentTarget.dataset.spacePressed = "true";
+      // A repeat means the key went down somewhere else first
+      if (!event.repeat) event.currentTarget.dataset.spacePressed = "true";
     }
   },
   onKeyUp: (event) => {
@@ -19,5 +21,9 @@ export const buttonKeyHandlers = (handler) => ({
     const pressedHere = event.currentTarget.dataset.spacePressed === "true";
     delete event.currentTarget.dataset.spacePressed;
     if (pressedHere) handler();
+  },
+  onBlur: (event) => {
+    // Space released after focus moved away shouldn't count later
+    delete event.currentTarget.dataset.spacePressed;
   },
 });
