@@ -53,3 +53,32 @@ test('a faded-out card is inert and does not open anything', () => {
   expect(open).not.toHaveBeenCalled();
   open.mockRestore();
 });
+
+test.each(['Enter', ' '])('pressing %p on a focused card opens the image', (key) => {
+  const open = jest.spyOn(window, 'open').mockImplementation(() => {});
+  render(
+    <Result
+      album={{ id: 1, title: 't', artist: 'a', imageUrl: 'u', originalImageUrl: 'u' }}
+      useJPG={false}
+    />
+  );
+
+  fireEvent.keyDown(screen.getByRole('button'), { key });
+
+  expect(open).toHaveBeenCalledWith('u', '_blank');
+  open.mockRestore();
+});
+
+test('shows a fallback when the thumbnail fails to load', () => {
+  render(
+    <Result
+      album={{ id: 1, title: 't', artist: 'a', imageUrl: 'broken', originalImageUrl: 'u' }}
+      useJPG={false}
+    />
+  );
+
+  fireEvent.error(screen.getByAltText('t cover'));
+
+  expect(screen.getByText('No preview')).toBeInTheDocument();
+  expect(document.querySelector('.loading-spinner')).toBeNull();
+});

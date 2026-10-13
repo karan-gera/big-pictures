@@ -3,6 +3,7 @@ import Result from "./components/Result";
 import InfoModal from "./components/InfoModal";
 import searchCache from "./utils/searchCache";
 import { API_ORDER, searchWithFallback } from "./utils/albumSearch";
+import { onActivateKey } from "./utils/keyboard";
 import "./App.css";
 
 function App() {
@@ -159,8 +160,11 @@ function App() {
   // Add global keypress handler
   useEffect(() => {
     const handleKeyPress = (e) => {
-      // Ignore if user is typing in an input or if it's a special key
+      // Ignore if user is typing in an input, a button already handled the key,
+      // or it's a special key
       if (
+        e.defaultPrevented ||
+        (e.key === " " && e.target.closest("button, [role='button']")) ||
         e.target.tagName === "INPUT" ||
         e.target.tagName === "TEXTAREA" ||
         e.metaKey ||
@@ -257,6 +261,7 @@ function App() {
         <h1
           className="site-title"
           onClick={handleTitleClick}
+          onKeyDown={onActivateKey(handleTitleClick)}
           role="button"
           tabIndex={0}
         >

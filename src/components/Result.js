@@ -1,8 +1,10 @@
 import React, { useState } from "react";
+import { onActivateKey } from "../utils/keyboard";
 import "./Result.css";
 
 const Result = ({ album, useJPG, fadingOut = false }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageFailed, setImageFailed] = useState(false);
 
   const getHighResImageUrl = (url) => {
     if (!url) return url;
@@ -87,19 +89,28 @@ const Result = ({ album, useJPG, fadingOut = false }) => {
     <div
       className={`album-card ${fadingOut ? "fade-out" : ""}`}
       onClick={handleClick}
+      onKeyDown={onActivateKey(handleClick)}
       role="button"
       tabIndex={0}
       inert={fadingOut}
     >
       <div className="image-container">
-        {!imageLoaded && <div className="loading-spinner" />}
-        <img
-          src={album.imageUrl}
-          alt={`${album.title} cover`}
-          className="album-image"
-          onLoad={handleImageLoad}
-          style={{ opacity: imageLoaded ? 1 : 0 }}
-        />
+        {imageFailed ? (
+          // The thumbnail failed, but the full-size image may still exist
+          <div className="image-fallback">No preview</div>
+        ) : (
+          <>
+            {!imageLoaded && <div className="loading-spinner" />}
+            <img
+              src={album.imageUrl}
+              alt={`${album.title} cover`}
+              className="album-image"
+              onLoad={handleImageLoad}
+              onError={() => setImageFailed(true)}
+              style={{ opacity: imageLoaded ? 1 : 0 }}
+            />
+          </>
+        )}
       </div>
       <div className="album-info">
         <div className="album-title">{album.title}</div>
