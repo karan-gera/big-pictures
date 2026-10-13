@@ -28,7 +28,7 @@ browser ──► iTunes Search API              (direct: no key needed, and App
 
 ## Getting started
 
-Needs Node 22.13+ or 24+ (`.nvmrc` pins 24).
+Needs Node 22.13+, 24, or 26+ (`.nvmrc` pins 24); Vitest skips Node 25.
 
 ```bash
 npm install
