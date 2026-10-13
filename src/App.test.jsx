@@ -2,9 +2,9 @@ import { render, screen, fireEvent, act } from '@testing-library/react';
 import App from './App';
 import { searchWithFallback } from './utils/albumSearch';
 
-jest.mock('./utils/albumSearch', () => ({
+vi.mock('./utils/albumSearch', () => ({
   API_ORDER: ['itunes', 'lastfm', 'discogs', 'musicbrainz'],
-  searchWithFallback: jest.fn(),
+  searchWithFallback: vi.fn(),
 }));
 
 const album = (title) => ({
@@ -24,22 +24,22 @@ beforeAll(() => {
 });
 
 beforeEach(() => {
-  jest.useFakeTimers();
-  jest.spyOn(console, 'log').mockImplementation(() => {});
+  vi.useFakeTimers();
+  vi.spyOn(console, 'log').mockImplementation(() => {});
   localStorage.clear();
   searchWithFallback.mockReset();
 });
 
 afterEach(() => {
-  jest.useRealTimers();
-  jest.restoreAllMocks();
+  vi.useRealTimers();
+  vi.restoreAllMocks();
 });
 
 const input = () => screen.getByPlaceholderText(/album\/single name/i);
 const type = (value) => fireEvent.change(input(), { target: { value } });
 const settle = async (ms = 500) => {
   await act(async () => {
-    jest.advanceTimersByTime(ms);
+    vi.advanceTimersByTime(ms);
   });
 };
 const isLoading = () => document.querySelector('.loading') !== null;
@@ -126,7 +126,7 @@ test('pressing Enter on the title clears the search', async () => {
 
 test('pressing Space on a focused card does not jump to the search box', async () => {
   searchWithFallback.mockResolvedValue({ api: 'itunes', results: [album('Kid A')] });
-  jest.spyOn(window, 'open').mockImplementation(() => {});
+  vi.spyOn(window, 'open').mockImplementation(() => {});
   render(<App />);
   type('kid a');
   await settle();
@@ -138,4 +138,29 @@ test('pressing Space on a focused card does not jump to the search box', async (
 
   expect(document.activeElement).toBe(card);
   expect(window.open).toHaveBeenCalled();
+});
+
+test('the info modal opens normally again after being closed', async () => {
+  render(<App />);
+  fireEvent.click(screen.getByLabelText('Show help'));
+  fireEvent.click(screen.getByText('×'));
+  await settle(250);
+  expect(document.querySelector('.modal-overlay')).toBeNull();
+
+  fireEvent.click(screen.getByLabelText('Show help'));
+  expect(document.querySelector('.modal-overlay')).not.toHaveClass('closing');
+});
+
+test('clearing the input after a search finished shows neither results nor loading', async () => {
+  searchWithFallback.mockResolvedValue({ api: 'itunes', results: [album('Kid A')] });
+  render(<App />);
+  type('kid a');
+  await settle();
+  expect(screen.getByText('Kid A')).toBeInTheDocument();
+
+  type('');
+  await settle();
+
+  expect(isLoading()).toBe(false);
+  expect(document.querySelector('.album-card')).toBeNull();
 });

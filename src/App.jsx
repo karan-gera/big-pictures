@@ -30,8 +30,9 @@ function App() {
   const prefs = getUserPreferences();
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [debouncedResults, setDebouncedResults] = useState([]);
+  // Results remember which term they're for, so loading is derived rather
+  // than tracked: it's whenever the results don't match the searched term yet
+  const [searchResults, setSearchResults] = useState({ term: "", results: [] });
   const [currentAPI, setCurrentAPI] = useState("itunes");
   const [isDarkMode, setIsDarkMode] = useState(prefs.theme);
   const [useJPG, setUseJPG] = useState(prefs.format);
@@ -123,27 +124,25 @@ function App() {
 
   // Run the search, falling back through the other APIs for this search only
   useEffect(() => {
-    if (!debouncedSearchTerm) {
-      setDebouncedResults([]);
-      setIsLoading(false);
-      return;
-    }
+    if (!debouncedSearchTerm) return;
 
     // Abort in-flight requests when the term changes so stale results never land
     const controller = new AbortController();
-    setIsLoading(true);
 
     searchWithFallback(debouncedSearchTerm, currentAPI, {
       signal: controller.signal,
     }).then(({ api, results }) => {
       if (controller.signal.aborted) return;
       if (api) console.log(`Showing results from ${api}`);
-      setDebouncedResults(results);
-      setIsLoading(false);
+      setSearchResults({ term: debouncedSearchTerm, results });
     });
 
     return () => controller.abort();
   }, [debouncedSearchTerm, currentAPI]);
+
+  const isLoading =
+    debouncedSearchTerm !== "" && searchResults.term !== debouncedSearchTerm;
+  const debouncedResults = debouncedSearchTerm ? searchResults.results : [];
 
   // Results fade out while the input differs from the term they were fetched
   // for, and fade back in if the input is changed back before the debounce fires
