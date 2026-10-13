@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect, useRef } from "react";
 import Result from "./components/Result";
 import InfoModal from "./components/InfoModal";
 import searchCache from "./utils/searchCache";
+import { API_ORDER, searchWithFallback } from "./utils/albumSearch";
 import "./App.css";
 
 function App() {
@@ -45,12 +46,11 @@ function App() {
     };
     // Expose function to test specific API
     window.testAPI = (apiName) => {
-      const validAPIs = ["itunes", "lastfm", "discogs", "musicbrainz"];
-      if (validAPIs.includes(apiName.toLowerCase())) {
+      if (API_ORDER.includes(apiName.toLowerCase())) {
         setCurrentAPI(apiName.toLowerCase());
         console.log(`✅ Switched to ${apiName} API. Try searching now!`);
       } else {
-        console.warn(`Invalid API. Valid options: ${validAPIs.join(", ")}`);
+        console.warn(`Invalid API. Valid options: ${API_ORDER.join(", ")}`);
       }
     };
     return () => {
@@ -120,333 +120,40 @@ function App() {
     return () => clearTimeout(timeoutId);
   }, [searchTerm]);
 
-  const searchMusicBrainz = useCallback(async (term) => {
-    try {
-      // Add timeout to prevent hanging on slow MusicBrainz API
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
-      
-      const response = await fetch(
-        `https://album-search-api.karanrajsinghgera.workers.dev/?q=${encodeURIComponent(
-          term
-        )}&api=musicbrainz`,
-        { signal: controller.signal }
-      );
-
-      clearTimeout(timeoutId);
-
-      const data = await response.json();
-      
-      if (!response.ok || (data.error && !Array.isArray(data))) {
-        throw new Error(data.error || "MusicBrainz API error");
-      }
-      
-      if (!Array.isArray(data)) {
-        throw new Error("Invalid MusicBrainz API response");
-      }
-
-      return data;
-    } catch (error) {
-      if (error.name === 'AbortError') {
-        throw new Error("MusicBrainz API timeout");
-      }
-      console.error("MusicBrainz search error:", error);
-      throw error;
-    }
-  }, []);
-
-  const searchItunes = useCallback(async (term) => {
-    try {
-      const response = await fetch(
-        `https://album-search-api.karanrajsinghgera.workers.dev/?q=${encodeURIComponent(
-          term
-        )}&api=itunes`
-      );
-
-      const data = await response.json();
-      
-      if (!response.ok || (data.error && !Array.isArray(data))) {
-        throw new Error(data.error || "iTunes API error");
-      }
-      
-      if (!Array.isArray(data)) {
-        throw new Error("Invalid iTunes API response");
-      }
-
-      return data;
-    } catch (error) {
-      console.error("iTunes search error:", error);
-      throw error;
-    }
-  }, []);
-
-  const searchDiscogs = useCallback(async (term) => {
-    try {
-      const response = await fetch(
-        `https://album-search-api.karanrajsinghgera.workers.dev/?q=${encodeURIComponent(
-          term
-        )}&api=discogs`
-      );
-
-      const data = await response.json();
-      
-      if (!response.ok || (data.error && !Array.isArray(data))) {
-        throw new Error(data.error || "Discogs API error");
-      }
-      
-      if (!Array.isArray(data)) {
-        throw new Error("Invalid Discogs API response");
-      }
-
-      return data;
-    } catch (error) {
-      console.error("Discogs search error:", error);
-      throw error;
-    }
-  }, []);
-
-  const searchLastFm = useCallback(async (term) => {
-    try {
-      const response = await fetch(
-        `https://album-search-api.karanrajsinghgera.workers.dev/?q=${encodeURIComponent(
-          term
-        )}&api=lastfm`
-      );
-
-      const data = await response.json();
-      
-      if (!response.ok || (data.error && !Array.isArray(data))) {
-        throw new Error(data.error || "Last.fm API error");
-      }
-      
-      if (!Array.isArray(data)) {
-        throw new Error("Invalid Last.fm API response");
-      }
-
-      return data;
-    } catch (error) {
-      console.error("Last.fm search error:", error);
-      throw error;
-    }
-  }, []);
-
-  // Update the search effect
+  // Run the search, falling back through the other APIs for this search only
   useEffect(() => {
-    const searchAlbums = async () => {
-      if (!debouncedSearchTerm) {
-        setDebouncedResults([]);
-        return;
-      }
+    if (!debouncedSearchTerm) {
+      setDebouncedResults([]);
+      setIsLoading(false);
+      return;
+    }
 
-      setIsLoading(true);
+    // Abort in-flight requests when the term changes so stale results never land
+    const controller = new AbortController();
+    setIsLoading(true);
 
-      // Check cache first
-      const cacheKey = `${currentAPI}:${debouncedSearchTerm}`;
-      const cachedResults = searchCache.get(cacheKey);
+    searchWithFallback(debouncedSearchTerm, currentAPI, {
+      signal: controller.signal,
+    }).then(({ api, results }) => {
+      if (controller.signal.aborted) return;
+      if (api) console.log(`Showing results from ${api}`);
+      setDebouncedResults(results);
+      setIsLoading(false);
+    });
 
-      if (cachedResults) {
-        console.log("Cache hit:", cacheKey);
-        setDebouncedResults(cachedResults);
-        setIsLoading(false);
-        return;
-      }
+    return () => controller.abort();
+  }, [debouncedSearchTerm, currentAPI]);
 
-      try {
-        let results;
-
-        // Try each API in sequence
-        if (currentAPI === "itunes") {
-          try {
-            results = await searchItunes(debouncedSearchTerm);
-            if (!results || results.length === 0) {
-              throw new Error("No results from iTunes");
-            }
-            searchCache.set(cacheKey, results);
-          } catch (error) {
-            console.log("Switching to Last.fm due to iTunes error");
-            setCurrentAPI("lastfm");
-            try {
-              results = await searchLastFm(debouncedSearchTerm);
-              if (!results || results.length === 0) {
-                throw new Error("No results from Last.fm");
-              }
-              searchCache.set(`lastfm:${debouncedSearchTerm}`, results);
-            } catch (error) {
-              console.log("Switching to Discogs due to Last.fm error");
-              setCurrentAPI("discogs");
-              try {
-                results = await searchDiscogs(debouncedSearchTerm);
-                if (!results || results.length === 0) {
-                  throw new Error("No results from Discogs");
-                }
-                searchCache.set(`discogs:${debouncedSearchTerm}`, results);
-              } catch (error) {
-                console.log("Switching to MusicBrainz due to Discogs error");
-                setCurrentAPI("musicbrainz");
-                try {
-                  results = await searchMusicBrainz(debouncedSearchTerm);
-                  if (!results || results.length === 0) {
-                    throw new Error("No results from MusicBrainz");
-                  }
-                  searchCache.set(`musicbrainz:${debouncedSearchTerm}`, results);
-                } catch (error) {
-                  // All APIs failed
-                  throw error;
-                }
-              }
-            }
-          }
-        } else if (currentAPI === "musicbrainz") {
-          try {
-            results = await searchMusicBrainz(debouncedSearchTerm);
-            if (!results || results.length === 0) {
-              throw new Error("No results from MusicBrainz");
-            }
-            searchCache.set(cacheKey, results);
-          } catch (error) {
-            console.log("Switching to Last.fm due to MusicBrainz error");
-            setCurrentAPI("lastfm");
-            try {
-              results = await searchLastFm(debouncedSearchTerm);
-              if (!results || results.length === 0) {
-                throw new Error("No results from Last.fm");
-              }
-              searchCache.set(`lastfm:${debouncedSearchTerm}`, results);
-            } catch (error) {
-              console.log("Switching to Discogs due to Last.fm error");
-              setCurrentAPI("discogs");
-              try {
-                results = await searchDiscogs(debouncedSearchTerm);
-                if (!results || results.length === 0) {
-                  throw new Error("No results from Discogs");
-                }
-                searchCache.set(`discogs:${debouncedSearchTerm}`, results);
-              } catch (error) {
-                console.log("Switching back to iTunes");
-                setCurrentAPI("itunes");
-                results = await searchItunes(debouncedSearchTerm);
-                if (!results || results.length === 0) {
-                  throw new Error("No results from iTunes");
-                }
-                searchCache.set(`itunes:${debouncedSearchTerm}`, results);
-              }
-            }
-          }
-        } else if (currentAPI === "lastfm") {
-          try {
-            results = await searchLastFm(debouncedSearchTerm);
-            if (!results || results.length === 0) {
-              throw new Error("No results from Last.fm");
-            }
-            searchCache.set(cacheKey, results);
-          } catch (error) {
-            console.log("Switching to Discogs due to Last.fm error");
-            setCurrentAPI("discogs");
-            try {
-              results = await searchDiscogs(debouncedSearchTerm);
-              if (!results || results.length === 0) {
-                throw new Error("No results from Discogs");
-              }
-              searchCache.set(`discogs:${debouncedSearchTerm}`, results);
-            } catch (error) {
-              console.log("Switching to MusicBrainz due to Discogs error");
-              setCurrentAPI("musicbrainz");
-              try {
-                results = await searchMusicBrainz(debouncedSearchTerm);
-                if (!results || results.length === 0) {
-                  throw new Error("No results from MusicBrainz");
-                }
-                searchCache.set(`musicbrainz:${debouncedSearchTerm}`, results);
-              } catch (error) {
-                console.log("Switching back to iTunes");
-                setCurrentAPI("itunes");
-                results = await searchItunes(debouncedSearchTerm);
-                if (!results || results.length === 0) {
-                  throw new Error("No results from iTunes");
-                }
-                searchCache.set(`itunes:${debouncedSearchTerm}`, results);
-              }
-            }
-          }
-        } else {
-          try {
-            results = await searchDiscogs(debouncedSearchTerm);
-            if (!results || results.length === 0) {
-              throw new Error("No results from Discogs");
-            }
-            searchCache.set(cacheKey, results);
-          } catch (error) {
-            console.log("Switching to MusicBrainz due to Discogs error");
-            setCurrentAPI("musicbrainz");
-            try {
-              results = await searchMusicBrainz(debouncedSearchTerm);
-              if (!results || results.length === 0) {
-                throw new Error("No results from MusicBrainz");
-              }
-              searchCache.set(`musicbrainz:${debouncedSearchTerm}`, results);
-            } catch (error) {
-              console.log("Switching back to iTunes");
-              setCurrentAPI("itunes");
-              results = await searchItunes(debouncedSearchTerm);
-              if (!results || results.length === 0) {
-                throw new Error("No results from iTunes");
-              }
-              searchCache.set(`itunes:${debouncedSearchTerm}`, results);
-            }
-          }
-        }
-
-        setDebouncedResults(results);
-        setIsLoading(false);
-      } catch (error) {
-        console.error("Error fetching albums:", error);
-        setDebouncedResults([]);
-        setIsLoading(false);
-      }
-    };
-
-    searchAlbums();
-  }, [
-    debouncedSearchTerm,
-    currentAPI,
-    searchItunes,
-    searchMusicBrainz,
-    searchDiscogs,
-    searchLastFm,
-  ]);
+  // Results fade out while the input differs from the term they were fetched
+  // for, and fade back in if the input is changed back before the debounce fires
+  const resultsAreStale = searchTerm !== debouncedSearchTerm;
 
   const handleSearch = useCallback((event) => {
-    const term = event.target.value;
-    setSearchTerm(term);
-
-    // Add fade-out class to existing results
-    if (resultsRef.current) {
-      const cards = resultsRef.current.getElementsByClassName("album-card");
-      Array.from(cards).forEach((card) => {
-        card.classList.add("fade-out");
-      });
-    }
-
-    // Clear results after fade-out animation
-    setTimeout(() => {
-      setDebouncedResults([]);
-    }, 300);
+    setSearchTerm(event.target.value);
   }, []);
 
   const handleTitleClick = useCallback(() => {
-    // Add fade-out class to existing results
-    if (resultsRef.current) {
-      const cards = resultsRef.current.getElementsByClassName("album-card");
-      Array.from(cards).forEach((card) => {
-        card.classList.add("fade-out");
-      });
-    }
-
-    // Clear results after fade-out animation
-    setTimeout(() => {
-      setSearchTerm("");
-      setDebouncedResults([]);
-    }, 300);
+    setSearchTerm("");
   }, []);
 
   // Add global keypress handler
@@ -612,7 +319,12 @@ function App() {
             </div>
           ) : (
             debouncedResults.map((album) => (
-              <Result key={album.id} album={album} useJPG={useJPG} />
+              <Result
+                key={album.id}
+                album={album}
+                useJPG={useJPG}
+                fadingOut={resultsAreStale}
+              />
             ))
           )}
         </div>
