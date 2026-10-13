@@ -2,26 +2,29 @@
 
 A simple tool to grab high-res album artwork. Nothing fancy - just search and download.
 
+Live at [bigpictures.xyz](https://bigpictures.xyz).
+
 ## What it does
 
-- Looks up album art from iTunes, MusicBrainz, Last.fm, and Discogs
-- Tries to get the biggest image it can find
-- Falls back to other sources if one fails
+- Looks up album art from iTunes, Last.fm, Discogs, and MusicBrainz
+- Opens the biggest image it can find when you click a result
+- Falls back to the next source if one fails or comes up empty
 - Has dark/light modes because why not
-- Saves your recent searches
+- Remembers your recent searches
 - Works on phones too
 
-## Under the hood
+## How it works
 
-Built with React. Uses some basic caching to avoid hammering the APIs too much. 
-Nothing groundbreaking, just trying to keep things snappy.
+```
+browser ──► iTunes Search API              (direct: no key needed, and Apple blocks Cloudflare IPs)
+        └─► Cloudflare Worker ──► Last.fm  (the worker holds the API keys)
+                              ├─► Discogs
+                              └─► MusicBrainz + Cover Art Archive
+```
 
-## APIs it uses
-
-- iTunes 
-- MusicBrainz
-- Last.fm
-- Discogs
+- `src/` is the React app, deployed to GitHub Pages.
+- `src/utils/albumSearch.js` does the searching and fallback. Each search tries iTunes, then Last.fm, Discogs, and MusicBrainz, stopping at the first one with results.
+- `worker/` is the Cloudflare Worker (`album-search-api`). It keeps the API keys off the client, only answers browsers on bigpictures.xyz and localhost, and caches results at the edge for 6 hours.
 
 ## Getting started
 
@@ -30,18 +33,44 @@ npm install
 npm start
 ```
 
-That's it! Visit localhost:3000 and you're good to go.
+Visit localhost:3000. The app uses the deployed worker by default. To point it at a local one instead:
 
-For production:
 ```bash
-npm run build
-npm run deploy  # pushes to GitHub Pages
+REACT_APP_WORKER_URL=http://localhost:8787 npm start
 ```
+
+Run the tests with `npm test`.
+
+## Working on the worker
+
+```bash
+cd worker
+npm install
+npx wrangler dev        # runs on localhost:8787
+```
+
+Last.fm and Discogs need keys. For local dev, put them in `worker/.dev.vars` (gitignored):
+
+```
+LASTFM_API_KEY=...
+DISCOGS_KEY=...
+DISCOGS_SECRET=...
+```
+
+In production they're Cloudflare secrets (`npx wrangler secret put LASTFM_API_KEY`).
+
+## Deploying
+
+```bash
+npm run deploy                  # builds and pushes the site to GitHub Pages
+cd worker && npx wrangler deploy  # deploys the worker
+```
+
+Merging to `master` doesn't deploy anything on its own.
 
 ## Cache stuff
 
-Keeps track of your last 20 searches for an hour to save some API calls.
-Stores them in your browser's localStorage - cleans itself up after.
+The browser keeps your last 20 searches for an hour in localStorage, and the worker caches results at the edge for 6 hours. Both save API calls, which matters because these APIs rate-limit hard.
 
 ## Made by
 

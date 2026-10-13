@@ -114,3 +114,28 @@ test('a search that finishes after a newer one started does not replace its resu
   expect(screen.getByText('OK Computer')).toBeInTheDocument();
   expect(screen.queryByText('Kid A')).toBeNull();
 });
+
+test('pressing Enter on the title clears the search', async () => {
+  render(<App />);
+  type('kid a');
+
+  fireEvent.keyDown(screen.getByText('bigpictures.xyz'), { key: 'Enter' });
+
+  expect(input().value).toBe('');
+});
+
+test('pressing Space on a focused card does not jump to the search box', async () => {
+  searchWithFallback.mockResolvedValue({ api: 'itunes', results: [album('Kid A')] });
+  jest.spyOn(window, 'open').mockImplementation(() => {});
+  render(<App />);
+  type('kid a');
+  await settle();
+
+  const card = document.querySelector('.album-card');
+  card.focus();
+  fireEvent.keyDown(card, { key: ' ' });
+  fireEvent.keyUp(card, { key: ' ' });
+
+  expect(document.activeElement).toBe(card);
+  expect(window.open).toHaveBeenCalled();
+});
