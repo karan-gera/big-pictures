@@ -1,7 +1,7 @@
 import searchCache from "./searchCache";
 
 const WORKER_URL =
-  process.env.REACT_APP_WORKER_URL ||
+  import.meta.env.VITE_WORKER_URL ||
   "https://album-search-api.karanrajsinghgera.workers.dev";
 
 export const API_ORDER = ["itunes", "lastfm", "discogs", "musicbrainz"];

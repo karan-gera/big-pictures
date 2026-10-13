@@ -22,24 +22,28 @@ browser ──► iTunes Search API              (direct: no key needed, and App
                               └─► MusicBrainz + Cover Art Archive
 ```
 
-- `src/` is the React app, deployed to GitHub Pages.
+- `src/` is the React app (Vite), deployed to GitHub Pages.
 - `src/utils/albumSearch.js` does the searching and fallback. Each search tries iTunes, then Last.fm, Discogs, and MusicBrainz, stopping at the first one with results.
 - `worker/` is the Cloudflare Worker (`album-search-api`). It keeps the API keys off the client, only answers browsers on bigpictures.xyz and localhost, and caches results at the edge for 6 hours.
 
 ## Getting started
 
+Needs Node 22.13+, 24, or 26+ (`.nvmrc` pins 24); Vitest skips Node 25.
+
 ```bash
 npm install
-npm start
+npm run dev
 ```
 
 Visit localhost:3000. The app uses the deployed worker by default. To point it at a local one instead:
 
 ```bash
-REACT_APP_WORKER_URL=http://localhost:8787 npm start
+VITE_WORKER_URL=http://localhost:8787 npm run dev
 ```
 
-Run the tests with `npm test`.
+- `npm test` runs the tests (Vitest, in watch mode; `npm test -- --run` runs once)
+- `npm run lint` runs ESLint
+- `npm run build` builds to `build/`, and `npm run preview` serves that build
 
 ## Working on the worker
 

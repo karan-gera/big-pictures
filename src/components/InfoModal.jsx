@@ -1,18 +1,16 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import "./InfoModal.css";
 
 const InfoModal = ({ isOpen, onClose }) => {
   const [isClosing, setIsClosing] = useState(false);
 
-  useEffect(() => {
-    if (!isOpen) {
-      setIsClosing(false);
-    }
-  }, [isOpen]);
-
   const handleClose = () => {
     setIsClosing(true);
-    setTimeout(onClose, 200); // Match the CSS animation duration
+    // Match the CSS animation duration, then reset for the next open
+    setTimeout(() => {
+      setIsClosing(false);
+      onClose();
+    }, 200);
   };
 
   if (!isOpen) return null;

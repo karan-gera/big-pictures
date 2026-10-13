@@ -2,7 +2,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import Result from './Result';
 
 const clickResult = (album) => {
-  const open = jest.spyOn(window, 'open').mockImplementation(() => {});
+  const open = vi.spyOn(window, 'open').mockImplementation(() => {});
   render(<Result album={album} useJPG={false} />);
   fireEvent.click(screen.getByRole('button'));
   const url = open.mock.calls[0][0];
@@ -38,7 +38,7 @@ test('opens the full-resolution iTunes image', () => {
 });
 
 test('a faded-out card is inert and does not open anything', () => {
-  const open = jest.spyOn(window, 'open').mockImplementation(() => {});
+  const open = vi.spyOn(window, 'open').mockImplementation(() => {});
   render(
     <Result
       album={{ id: 1, title: 't', artist: 'a', imageUrl: 'u', originalImageUrl: 'u' }}
@@ -63,7 +63,7 @@ const renderCard = (album = {}) =>
   );
 
 test.each(['Enter', ' '])('pressing and releasing %p on a focused card opens the image once', (key) => {
-  const open = jest.spyOn(window, 'open').mockImplementation(() => {});
+  const open = vi.spyOn(window, 'open').mockImplementation(() => {});
   renderCard();
   const card = screen.getByRole('button');
 
@@ -76,7 +76,7 @@ test.each(['Enter', ' '])('pressing and releasing %p on a focused card opens the
 });
 
 test.each(['Enter', ' '])('holding %p down opens the image only once', (key) => {
-  const open = jest.spyOn(window, 'open').mockImplementation(() => {});
+  const open = vi.spyOn(window, 'open').mockImplementation(() => {});
   renderCard();
   const card = screen.getByRole('button');
 
@@ -90,7 +90,7 @@ test.each(['Enter', ' '])('holding %p down opens the image only once', (key) => 
 });
 
 test('a Space press abandoned by moving focus away does not activate later', () => {
-  const open = jest.spyOn(window, 'open').mockImplementation(() => {});
+  const open = vi.spyOn(window, 'open').mockImplementation(() => {});
   renderCard();
   const card = screen.getByRole('button');
 
@@ -105,7 +105,7 @@ test('a Space press abandoned by moving focus away does not activate later', () 
 });
 
 test('a held Space repeating onto the card after focus moved does not activate it', () => {
-  const open = jest.spyOn(window, 'open').mockImplementation(() => {});
+  const open = vi.spyOn(window, 'open').mockImplementation(() => {});
   renderCard();
   const card = screen.getByRole('button');
 
@@ -118,7 +118,7 @@ test('a held Space repeating onto the card after focus moved does not activate i
 });
 
 test('releasing Space without pressing it on the card does nothing', () => {
-  const open = jest.spyOn(window, 'open').mockImplementation(() => {});
+  const open = vi.spyOn(window, 'open').mockImplementation(() => {});
   renderCard();
 
   fireEvent.keyUp(screen.getByRole('button'), { key: ' ' });

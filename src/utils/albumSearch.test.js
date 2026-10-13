@@ -13,20 +13,20 @@ function makeCache() {
 
 function makeApis(overrides = {}) {
   return {
-    itunes: jest.fn().mockResolvedValue([album("itunes")]),
-    lastfm: jest.fn().mockResolvedValue([album("lastfm")]),
-    discogs: jest.fn().mockResolvedValue([album("discogs")]),
-    musicbrainz: jest.fn().mockResolvedValue([album("musicbrainz")]),
+    itunes: vi.fn().mockResolvedValue([album("itunes")]),
+    lastfm: vi.fn().mockResolvedValue([album("lastfm")]),
+    discogs: vi.fn().mockResolvedValue([album("discogs")]),
+    musicbrainz: vi.fn().mockResolvedValue([album("musicbrainz")]),
     ...overrides,
   };
 }
 
 beforeEach(() => {
-  jest.spyOn(console, "log").mockImplementation(() => {});
-  jest.spyOn(console, "error").mockImplementation(() => {});
+  vi.spyOn(console, "log").mockImplementation(() => {});
+  vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
-afterEach(() => jest.restoreAllMocks());
+afterEach(() => vi.restoreAllMocks());
 
 test("uses the preferred API when it succeeds", async () => {
   const apis = makeApis();
@@ -41,8 +41,8 @@ test("uses the preferred API when it succeeds", async () => {
 
 test("falls back in order when APIs fail or return nothing", async () => {
   const apis = makeApis({
-    itunes: jest.fn().mockRejectedValue(new Error("403")),
-    lastfm: jest.fn().mockResolvedValue([]),
+    itunes: vi.fn().mockRejectedValue(new Error("403")),
+    lastfm: vi.fn().mockResolvedValue([]),
   });
   const cache = makeCache();
   const result = await searchWithFallback("kid a", "itunes", { cache, apis });
@@ -53,7 +53,7 @@ test("falls back in order when APIs fail or return nothing", async () => {
 });
 
 test("a fallback does not stick: the next search starts from the preferred API", async () => {
-  const itunes = jest
+  const itunes = vi
     .fn()
     .mockRejectedValueOnce(new Error("429"))
     .mockResolvedValue([album("itunes")]);
@@ -82,7 +82,7 @@ test("returns cached results without calling the API", async () => {
 });
 
 test("returns empty results when every API fails", async () => {
-  const fail = () => jest.fn().mockRejectedValue(new Error("down"));
+  const fail = () => vi.fn().mockRejectedValue(new Error("down"));
   const apis = makeApis({
     itunes: fail(),
     lastfm: fail(),
@@ -101,7 +101,7 @@ test("returns empty results when every API fails", async () => {
 test("stops trying APIs once the search is aborted", async () => {
   const controller = new AbortController();
   const apis = makeApis({
-    itunes: jest.fn().mockImplementation(async () => {
+    itunes: vi.fn().mockImplementation(async () => {
       controller.abort();
       throw new Error("aborted");
     }),
@@ -120,7 +120,7 @@ test("stops trying APIs once the search is aborted", async () => {
 test("drops results from an API that responds after the search was aborted", async () => {
   const controller = new AbortController();
   const apis = makeApis({
-    itunes: jest.fn().mockImplementation(async () => {
+    itunes: vi.fn().mockImplementation(async () => {
       controller.abort();
       return [album("late")];
     }),
@@ -138,28 +138,30 @@ test("drops results from an API that responds after the search was aborted", asy
 });
 
 test("times out a response whose body stalls after the headers arrive", async () => {
-  jest.useFakeTimers();
-  const originalFetch = global.fetch;
-  global.fetch = jest.fn((url, { signal }) =>
-    Promise.resolve({
-      ok: true,
-      status: 200,
-      // Like a real fetch body, reject only once the request is aborted
-      json: () =>
-        new Promise((resolve, reject) =>
-          signal.addEventListener("abort", () => reject(new Error("aborted")))
-        ),
-    })
+  vi.useFakeTimers();
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((url, { signal }) =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        // Like a real fetch body, reject only once the request is aborted
+        json: () =>
+          new Promise((resolve, reject) =>
+            signal.addEventListener("abort", () => reject(new Error("aborted")))
+          ),
+      })
+    )
   );
 
   try {
     const pending = searchers.itunes("kid a");
     const assertion = expect(pending).rejects.toThrow("aborted");
     await Promise.resolve();
-    jest.advanceTimersByTime(8000);
+    vi.advanceTimersByTime(8000);
     await assertion;
   } finally {
-    global.fetch = originalFetch;
-    jest.useRealTimers();
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
   }
 });
