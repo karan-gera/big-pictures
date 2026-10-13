@@ -28,7 +28,7 @@ browser ──► iTunes Search API              (direct: no key needed, and App
 
 ## Getting started
 
-Needs Node 20.19+ or 22.12+ (`.nvmrc` pins 24).
+Needs Node 22.13+ or 24+ (`.nvmrc` pins 24).
 
 ```bash
 npm install

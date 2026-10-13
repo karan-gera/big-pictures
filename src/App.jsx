@@ -29,11 +29,13 @@ function App() {
 
   const prefs = getUserPreferences();
   const [searchTerm, setSearchTerm] = useState("");
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
-  // Results remember which term they're for, so loading is derived rather
-  // than tracked: it's whenever the results don't match the searched term yet
-  const [searchResults, setSearchResults] = useState({ term: "", results: [] });
-  const [currentAPI, setCurrentAPI] = useState("itunes");
+  // Each search is its own object: a new object means a new request, even for
+  // a term searched before or the same term with a different API
+  const [searchRequest, setSearchRequest] = useState({ term: "", api: "itunes" });
+  const debouncedSearchTerm = searchRequest.term;
+  // Results remember the request that produced them, so loading is derived:
+  // it's whenever the current request hasn't produced results yet
+  const [searchResults, setSearchResults] = useState({ request: null, results: [] });
   const [isDarkMode, setIsDarkMode] = useState(prefs.theme);
   const [useJPG, setUseJPG] = useState(prefs.format);
   const [isGridView, setIsGridView] = useState(prefs.view);
@@ -49,7 +51,8 @@ function App() {
     // Expose function to test specific API
     window.testAPI = (apiName) => {
       if (API_ORDER.includes(apiName.toLowerCase())) {
-        setCurrentAPI(apiName.toLowerCase());
+        const api = apiName.toLowerCase();
+        setSearchRequest((prev) => ({ ...prev, api }));
         console.log(`✅ Switched to ${apiName} API. Try searching now!`);
       } else {
         console.warn(`Invalid API. Valid options: ${API_ORDER.join(", ")}`);
@@ -116,7 +119,11 @@ function App() {
   // Handle the debounced search term
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      setDebouncedSearchTerm(searchTerm);
+      // Keep the same request if the input ended up back where it was, so
+      // its results stay instead of being fetched again
+      setSearchRequest((prev) =>
+        prev.term === searchTerm ? prev : { ...prev, term: searchTerm }
+      );
     }, 500);
 
     return () => clearTimeout(timeoutId);
@@ -124,24 +131,24 @@ function App() {
 
   // Run the search, falling back through the other APIs for this search only
   useEffect(() => {
-    if (!debouncedSearchTerm) return;
+    if (!searchRequest.term) return;
 
     // Abort in-flight requests when the term changes so stale results never land
     const controller = new AbortController();
 
-    searchWithFallback(debouncedSearchTerm, currentAPI, {
+    searchWithFallback(searchRequest.term, searchRequest.api, {
       signal: controller.signal,
     }).then(({ api, results }) => {
       if (controller.signal.aborted) return;
       if (api) console.log(`Showing results from ${api}`);
-      setSearchResults({ term: debouncedSearchTerm, results });
+      setSearchResults({ request: searchRequest, results });
     });
 
     return () => controller.abort();
-  }, [debouncedSearchTerm, currentAPI]);
+  }, [searchRequest]);
 
   const isLoading =
-    debouncedSearchTerm !== "" && searchResults.term !== debouncedSearchTerm;
+    debouncedSearchTerm !== "" && searchResults.request !== searchRequest;
   const debouncedResults = debouncedSearchTerm ? searchResults.results : [];
 
   // Results fade out while the input differs from the term they were fetched

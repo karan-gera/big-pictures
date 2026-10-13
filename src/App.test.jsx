@@ -164,3 +164,53 @@ test('clearing the input after a search finished shows neither results nor loadi
   expect(isLoading()).toBe(false);
   expect(document.querySelector('.album-card')).toBeNull();
 });
+
+test('switching APIs with testAPI shows loading for the same term until new results arrive', async () => {
+  let resolveLastFm;
+  searchWithFallback
+    .mockResolvedValueOnce({ api: 'itunes', results: [album('From iTunes')] })
+    .mockReturnValueOnce(new Promise((resolve) => (resolveLastFm = resolve)));
+  render(<App />);
+  type('kid a');
+  await settle();
+  expect(screen.getByText('From iTunes')).toBeInTheDocument();
+
+  await act(async () => {
+    window.testAPI('lastfm');
+  });
+
+  expect(searchWithFallback).toHaveBeenLastCalledWith('kid a', 'lastfm', expect.anything());
+  expect(isLoading()).toBe(true);
+  expect(screen.queryByText('From iTunes')).toBeNull();
+
+  await act(async () => {
+    resolveLastFm({ api: 'lastfm', results: [album('From Last.fm')] });
+  });
+  expect(isLoading()).toBe(false);
+  expect(screen.getByText('From Last.fm')).toBeInTheDocument();
+});
+
+test('searching a term again after clearing it shows loading instead of the old results', async () => {
+  let resolveSecond;
+  searchWithFallback
+    .mockResolvedValueOnce({ api: 'itunes', results: [album('Old result')] })
+    .mockReturnValueOnce(new Promise((resolve) => (resolveSecond = resolve)));
+  render(<App />);
+  type('kid a');
+  await settle();
+  expect(screen.getByText('Old result')).toBeInTheDocument();
+
+  type('');
+  await settle();
+  type('kid a');
+  await settle();
+
+  expect(searchWithFallback).toHaveBeenCalledTimes(2);
+  expect(isLoading()).toBe(true);
+  expect(screen.queryByText('Old result')).toBeNull();
+
+  await act(async () => {
+    resolveSecond({ api: 'itunes', results: [album('Fresh result')] });
+  });
+  expect(screen.getByText('Fresh result')).toBeInTheDocument();
+});
