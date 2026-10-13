@@ -19,14 +19,28 @@ function isAllowedOrigin(origin) {
   return ALLOWED_ORIGINS.some((pattern) => pattern.test(origin));
 }
 
+// Every response varies by Origin (allowed, blocked, or absent), so say so on
+// all of them, or a downstream cache could serve one variant to another
 function corsHeaders(origin) {
-  if (!origin) return {};
+  if (!origin) return { Vary: "Origin" };
   return {
     "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "GET, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
     Vary: "Origin",
   };
+}
+
+// Browsers send Origin on CORS requests, but not on no-cors ones (e.g. an
+// <img> or fetch(..., { mode: "no-cors" }) on another site). Those still carry
+// Sec-Fetch-Site, so use it to reject cross-site requests without an Origin.
+// Clients that send neither header (curl, scripts) are allowed for testing;
+// they can fake any header anyway.
+function isAllowedRequest(request) {
+  const origin = request.headers.get("Origin");
+  if (origin) return isAllowedOrigin(origin);
+  const fetchSite = request.headers.get("Sec-Fetch-Site");
+  return fetchSite !== "cross-site" && fetchSite !== "same-site";
 }
 
 function jsonResponse(body, status, origin, extraHeaders = {}) {
@@ -117,6 +131,16 @@ async function searchDiscogs(term, env) {
     .filter((album) => album.imageUrl);
 }
 
+// Absolute URL a redirect points to, or the fallback if it has no usable Location
+function redirectTarget(response, requestUrl) {
+  try {
+    const location = response.headers.get("Location");
+    return location ? new URL(location, requestUrl).href : requestUrl;
+  } catch {
+    return requestUrl;
+  }
+}
+
 // Search MusicBrainz API
 async function searchMusicBrainz(term) {
   // Search for releases
@@ -173,8 +197,7 @@ async function searchMusicBrainz(term) {
           headers: { "User-Agent": USER_AGENT },
         });
         if (coverArtResponse.status >= 300 && coverArtResponse.status < 400) {
-          imageUrl =
-            coverArtResponse.headers.get("Location") || `${coverArtBase}/front-250`;
+          imageUrl = redirectTarget(coverArtResponse, `${coverArtBase}/front-250`);
           originalImageUrl = `${coverArtBase}/front`;
         }
       } catch (error) {
@@ -207,10 +230,11 @@ export default {
   async fetch(request, env, ctx) {
     const origin = request.headers.get("Origin");
 
-    // Browsers always send Origin on cross-site requests. Requests without one
-    // (curl, server-side) are allowed so the worker stays easy to test.
-    if (origin && !isAllowedOrigin(origin)) {
-      return new Response("Origin not allowed", { status: 403 });
+    if (!isAllowedRequest(request)) {
+      return new Response("Origin not allowed", {
+        status: 403,
+        headers: { Vary: "Origin" },
+      });
     }
 
     if (request.method === "OPTIONS") {
@@ -235,7 +259,8 @@ export default {
       });
     }
 
-    const search = SEARCHERS[api];
+    // Object.hasOwn so names like "constructor" don't resolve to Object methods
+    const search = Object.hasOwn(SEARCHERS, api) ? SEARCHERS[api] : null;
     if (!search) {
       return new Response("Invalid API specified", {
         status: 400,
@@ -243,11 +268,12 @@ export default {
       });
     }
 
-    // Cache by API and normalized term. CORS headers are added per request,
-    // so the cached copy has none.
+    // Cache by API and trimmed term. Case is kept: MusicBrainz treats
+    // uppercase OR/AND as operators, so "a OR b" and "a or b" differ. CORS
+    // headers are added per request, so the cached copy has none.
     const cache = caches.default;
     const cacheKey = new Request(
-      `${url.origin}/?api=${api}&q=${encodeURIComponent(searchTerm.toLowerCase())}`
+      `${url.origin}/?api=${api}&q=${encodeURIComponent(searchTerm)}`
     );
 
     const cached = await cache.match(cacheKey);
