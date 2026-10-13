@@ -19,15 +19,18 @@ function isAllowedOrigin(origin) {
   return ALLOWED_ORIGINS.some((pattern) => pattern.test(origin));
 }
 
-// Every response varies by Origin (allowed, blocked, or absent), so say so on
-// all of them, or a downstream cache could serve one variant to another
+// Whether a request is allowed depends on Origin and Sec-Fetch-Site (see
+// isAllowedRequest), so every response says so, or a downstream cache could
+// serve an allowed response to a request that should be rejected
+const VARY = "Origin, Sec-Fetch-Site";
+
 function corsHeaders(origin) {
-  if (!origin) return { Vary: "Origin" };
+  if (!origin) return { Vary: VARY };
   return {
     "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "GET, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
-    Vary: "Origin",
+    Vary: VARY,
   };
 }
 
@@ -233,7 +236,7 @@ export default {
     if (!isAllowedRequest(request)) {
       return new Response("Origin not allowed", {
         status: 403,
-        headers: { Vary: "Origin" },
+        headers: { Vary: VARY },
       });
     }
 
