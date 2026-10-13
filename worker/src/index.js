@@ -1,3 +1,9 @@
+// MusicBrainz asks for contact info in the User-Agent
+const USER_AGENT = "bigpictures/1.0.0 ( https://bigpictures.xyz )";
+
+// Last.fm returns this grey star image when an album has no artwork
+const LASTFM_PLACEHOLDER = "2a96cbd8b46e442fc41c2b86b821562f";
+
 // CORS headers
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,34 +16,6 @@ async function handleOptions(request) {
   return new Response(null, {
     headers: corsHeaders,
   });
-}
-
-// Search iTunes API
-async function searchItunes(term) {
-  const response = await fetch(
-    `https://itunes.apple.com/search?term=${encodeURIComponent(
-      term
-    )}&entity=album&limit=20`
-  );
-  
-  if (!response.ok) {
-    throw new Error(`iTunes API returned ${response.status}`);
-  }
-  
-  const data = await response.json();
-  
-  if (!data.results || !Array.isArray(data.results)) {
-    throw new Error("Invalid iTunes API response");
-  }
-  
-  return data.results.map((album) => ({
-    id: album.collectionId,
-    title: album.collectionName,
-    artist: album.artistName,
-    year: new Date(album.releaseDate).getFullYear(),
-    imageUrl: album.artworkUrl100.replace("100x100", "600x600"),
-    originalImageUrl: album.artworkUrl100,
-  }));
 }
 
 // Search Last.fm API
@@ -77,7 +55,9 @@ async function searchLastFm(term) {
         originalImageUrl: album.image[3]?.["#text"] || album.image[2]?.["#text"],
       };
     })
-    .filter((album) => album.imageUrl);
+    .filter(
+      (album) => album.imageUrl && !album.imageUrl.includes(LASTFM_PLACEHOLDER)
+    );
 }
 
 // Search Discogs API
@@ -89,7 +69,7 @@ async function searchDiscogs(term) {
     {
       headers: {
         Authorization: `Discogs key=${DISCOGS_KEY}, secret=${DISCOGS_SECRET}`,
-        "User-Agent": "bigpictures/1.0.0",
+        "User-Agent": USER_AGENT,
       },
     }
   );
@@ -125,13 +105,13 @@ async function searchMusicBrainz(term) {
     )}&limit=20&fmt=json`,
     {
       headers: {
-        "User-Agent": "bigpictures/1.0.0",
+        "User-Agent": USER_AGENT,
       },
     }
   );
 
   if (!response.ok) {
-    throw new Error("MusicBrainz API error");
+    throw new Error(`MusicBrainz API returned ${response.status}`);
   }
 
   const data = await response.json();
@@ -156,35 +136,22 @@ async function searchMusicBrainz(term) {
       const dateStr = release.date || "";
       const year = dateStr ? new Date(dateStr).getFullYear() : "Unknown";
 
-      // Get cover art from Cover Art Archive
+      // Check Cover Art Archive without following the redirect: 307 means the
+      // art exists, 404 means it doesn't. Following it would download the image.
       const mbid = release.id;
+      const coverArtBase = `https://coverartarchive.org/release/${mbid}`;
       let imageUrl = null;
       let originalImageUrl = null;
 
       try {
-        // Try to get cover art - use front-250 for thumbnail
-        const coverArtResponse = await fetch(
-          `https://coverartarchive.org/release/${mbid}/front-250`,
-          {
-            redirect: "follow",
-          }
-        );
-        if (coverArtResponse.ok) {
-          imageUrl = coverArtResponse.url;
-          // For original, try to get the full-size image
-          // The front endpoint redirects to the full-size image URL
-          const largeResponse = await fetch(
-            `https://coverartarchive.org/release/${mbid}/front`,
-            {
-              redirect: "follow",
-            }
-          );
-          if (largeResponse.ok) {
-            originalImageUrl = largeResponse.url;
-          } else {
-            // Fallback to thumbnail if large version fails
-            originalImageUrl = imageUrl;
-          }
+        const coverArtResponse = await fetch(`${coverArtBase}/front-250`, {
+          method: "HEAD",
+          redirect: "manual",
+          headers: { "User-Agent": USER_AGENT },
+        });
+        if (coverArtResponse.status >= 300 && coverArtResponse.status < 400) {
+          imageUrl = `${coverArtBase}/front-250`;
+          originalImageUrl = `${coverArtBase}/front`;
         }
       } catch (error) {
         // Cover art not available, skip this release
@@ -223,7 +190,8 @@ async function handleRequest(request) {
   try {
     const url = new URL(request.url);
     const searchTerm = url.searchParams.get("q");
-    const api = url.searchParams.get("api") || "itunes";
+    // iTunes is queried directly from the browser - Apple blocks Worker IPs
+    const api = url.searchParams.get("api");
 
     if (!searchTerm) {
       return new Response("Search term is required", {
@@ -234,9 +202,6 @@ async function handleRequest(request) {
 
     let results;
     switch (api) {
-      case "itunes":
-        results = await searchItunes(searchTerm);
-        break;
       case "lastfm":
         results = await searchLastFm(searchTerm);
         break;

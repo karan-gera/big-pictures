@@ -10,19 +10,16 @@ const Result = ({ album, useJPG }) => {
     // Handle iTunes URLs (mzstatic.com)
     if (url.includes("mzstatic.com")) {
       // iTunes URLs have pattern: .../100x100bb.jpg
-      // Replace size with maximum resolution
-      return url.replace(/\d+x\d+bb\.(jpg|png)/, `${100000}x${100000}bb.${useJPG ? "jpg" : "png"}`);
+      // Request 10000x10000 to get the original upload: Apple serves the original
+      // when asked for anything larger, but rejects sizes above 10000 with a 400
+      return url.replace(/\d+x\d+bb\.(jpg|png)/, `10000x10000bb.${useJPG ? "jpg" : "png"}`);
     }
     
-    // Handle Last.fm URLs (lastfm.freetls.fastly.net)
-    if (url.includes("lastfm.freetls.fastly.net")) {
-      // Last.fm URLs have pattern: .../300x300/filename.png
-      // Try to get larger size (Last.fm supports up to 500x500)
-      // If already at max or larger, return as-is
-      if (url.includes("/500x500/") || url.includes("/800x800/")) {
-        return url;
-      }
-      return url.replace(/\/\d+x\d+\//, "/500x500/");
+    // Handle Last.fm URLs (lastfm.freetls.fastly.net, lastfm-img.freetls.fastly.net)
+    if (/lastfm(-img)?\.freetls\.fastly\.net/.test(url)) {
+      // Last.fm URLs have pattern: .../i/u/300x300/filename.png
+      // Dropping the size segment returns the original upload (often 1000px+)
+      return url.replace(/\/i\/u\/\d+x\d+\//, "/i/u/");
     }
     
     // Handle Discogs URLs
@@ -64,7 +61,7 @@ const Result = ({ album, useJPG }) => {
     if (album.id && String(album.id).startsWith("lastfm-")) {
       if (album.originalImageUrl && album.originalImageUrl.includes("coverartarchive.org")) {
         // Cover Art Archive URL might not exist, prefer Last.fm URL if available
-        if (album.imageUrl && album.imageUrl.includes("lastfm.freetls.fastly.net")) {
+        if (album.imageUrl && /lastfm(-img)?\.freetls\.fastly\.net/.test(album.imageUrl)) {
           urlToUse = album.imageUrl;
         }
       }
