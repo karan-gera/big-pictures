@@ -1,10 +1,34 @@
 import React, { useState } from "react";
-import { onActivateKey } from "../utils/keyboard";
+import { buttonKeyHandlers } from "../utils/keyboard";
 import "./Result.css";
 
-const Result = ({ album, useJPG, fadingOut = false }) => {
+// Keyed by URL where it's used, so a new image URL always starts fresh
+// instead of inheriting a previous image's loaded/failed state
+const Thumbnail = ({ src, alt }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
+
+  if (imageFailed) {
+    // The thumbnail failed, but the full-size image may still exist
+    return <div className="image-fallback">No preview</div>;
+  }
+
+  return (
+    <>
+      {!imageLoaded && <div className="loading-spinner" />}
+      <img
+        src={src}
+        alt={alt}
+        className="album-image"
+        onLoad={() => setImageLoaded(true)}
+        onError={() => setImageFailed(true)}
+        style={{ opacity: imageLoaded ? 1 : 0 }}
+      />
+    </>
+  );
+};
+
+const Result = ({ album, useJPG, fadingOut = false }) => {
 
   const getHighResImageUrl = (url) => {
     if (!url) return url;
@@ -81,36 +105,21 @@ const Result = ({ album, useJPG, fadingOut = false }) => {
     window.open(highResUrl, "_blank");
   };
 
-  const handleImageLoad = () => {
-    setImageLoaded(true);
-  };
-
   return (
     <div
       className={`album-card ${fadingOut ? "fade-out" : ""}`}
       onClick={handleClick}
-      onKeyDown={onActivateKey(handleClick)}
+      {...buttonKeyHandlers(handleClick)}
       role="button"
       tabIndex={0}
       inert={fadingOut}
     >
       <div className="image-container">
-        {imageFailed ? (
-          // The thumbnail failed, but the full-size image may still exist
-          <div className="image-fallback">No preview</div>
-        ) : (
-          <>
-            {!imageLoaded && <div className="loading-spinner" />}
-            <img
-              src={album.imageUrl}
-              alt={`${album.title} cover`}
-              className="album-image"
-              onLoad={handleImageLoad}
-              onError={() => setImageFailed(true)}
-              style={{ opacity: imageLoaded ? 1 : 0 }}
-            />
-          </>
-        )}
+        <Thumbnail
+          key={album.imageUrl}
+          src={album.imageUrl}
+          alt={`${album.title} cover`}
+        />
       </div>
       <div className="album-info">
         <div className="album-title">{album.title}</div>

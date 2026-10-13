@@ -3,7 +3,7 @@ import Result from "./components/Result";
 import InfoModal from "./components/InfoModal";
 import searchCache from "./utils/searchCache";
 import { API_ORDER, searchWithFallback } from "./utils/albumSearch";
-import { onActivateKey } from "./utils/keyboard";
+import { buttonKeyHandlers } from "./utils/keyboard";
 import "./App.css";
 
 function App() {
@@ -261,7 +261,7 @@ function App() {
         <h1
           className="site-title"
           onClick={handleTitleClick}
-          onKeyDown={onActivateKey(handleTitleClick)}
+          {...buttonKeyHandlers(handleTitleClick)}
           role="button"
           tabIndex={0}
         >

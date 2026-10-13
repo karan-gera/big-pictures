@@ -134,6 +134,7 @@ test('pressing Space on a focused card does not jump to the search box', async (
   const card = document.querySelector('.album-card');
   card.focus();
   fireEvent.keyDown(card, { key: ' ' });
+  fireEvent.keyUp(card, { key: ' ' });
 
   expect(document.activeElement).toBe(card);
   expect(window.open).toHaveBeenCalled();
