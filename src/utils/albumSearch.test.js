@@ -1,4 +1,4 @@
-import { searchWithFallback } from "./albumSearch";
+import { searchWithFallback, searchers } from "./albumSearch";
 
 const album = (id) => ({ id, title: "t", artist: "a", imageUrl: "u" });
 
@@ -115,4 +115,51 @@ test("stops trying APIs once the search is aborted", async () => {
 
   expect(result.aborted).toBe(true);
   expect(apis.lastfm).not.toHaveBeenCalled();
+});
+
+test("drops results from an API that responds after the search was aborted", async () => {
+  const controller = new AbortController();
+  const apis = makeApis({
+    itunes: jest.fn().mockImplementation(async () => {
+      controller.abort();
+      return [album("late")];
+    }),
+  });
+  const cache = makeCache();
+
+  const result = await searchWithFallback("kid a", "itunes", {
+    signal: controller.signal,
+    cache,
+    apis,
+  });
+
+  expect(result.aborted).toBe(true);
+  expect(cache.store.size).toBe(0);
+});
+
+test("times out a response whose body stalls after the headers arrive", async () => {
+  jest.useFakeTimers();
+  const originalFetch = global.fetch;
+  global.fetch = jest.fn((url, { signal }) =>
+    Promise.resolve({
+      ok: true,
+      status: 200,
+      // Like a real fetch body, reject only once the request is aborted
+      json: () =>
+        new Promise((resolve, reject) =>
+          signal.addEventListener("abort", () => reject(new Error("aborted")))
+        ),
+    })
+  );
+
+  try {
+    const pending = searchers.itunes("kid a");
+    const assertion = expect(pending).rejects.toThrow("aborted");
+    await Promise.resolve();
+    jest.advanceTimersByTime(8000);
+    await assertion;
+  } finally {
+    global.fetch = originalFetch;
+    jest.useRealTimers();
+  }
 });

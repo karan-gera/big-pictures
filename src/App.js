@@ -124,6 +124,7 @@ function App() {
   useEffect(() => {
     if (!debouncedSearchTerm) {
       setDebouncedResults([]);
+      setIsLoading(false);
       return;
     }
 
@@ -133,8 +134,8 @@ function App() {
 
     searchWithFallback(debouncedSearchTerm, currentAPI, {
       signal: controller.signal,
-    }).then(({ api, results, aborted }) => {
-      if (aborted) return;
+    }).then(({ api, results }) => {
+      if (controller.signal.aborted) return;
       if (api) console.log(`Showing results from ${api}`);
       setDebouncedResults(results);
       setIsLoading(false);
@@ -143,38 +144,16 @@ function App() {
     return () => controller.abort();
   }, [debouncedSearchTerm, currentAPI]);
 
+  // Results fade out while the input differs from the term they were fetched
+  // for, and fade back in if the input is changed back before the debounce fires
+  const resultsAreStale = searchTerm !== debouncedSearchTerm;
+
   const handleSearch = useCallback((event) => {
-    const term = event.target.value;
-    setSearchTerm(term);
-
-    // Add fade-out class to existing results
-    if (resultsRef.current) {
-      const cards = resultsRef.current.getElementsByClassName("album-card");
-      Array.from(cards).forEach((card) => {
-        card.classList.add("fade-out");
-      });
-    }
-
-    // Clear results after fade-out animation
-    setTimeout(() => {
-      setDebouncedResults([]);
-    }, 300);
+    setSearchTerm(event.target.value);
   }, []);
 
   const handleTitleClick = useCallback(() => {
-    // Add fade-out class to existing results
-    if (resultsRef.current) {
-      const cards = resultsRef.current.getElementsByClassName("album-card");
-      Array.from(cards).forEach((card) => {
-        card.classList.add("fade-out");
-      });
-    }
-
-    // Clear results after fade-out animation
-    setTimeout(() => {
-      setSearchTerm("");
-      setDebouncedResults([]);
-    }, 300);
+    setSearchTerm("");
   }, []);
 
   // Add global keypress handler
@@ -340,7 +319,12 @@ function App() {
             </div>
           ) : (
             debouncedResults.map((album) => (
-              <Result key={album.id} album={album} useJPG={useJPG} />
+              <Result
+                key={album.id}
+                album={album}
+                useJPG={useJPG}
+                fadingOut={resultsAreStale}
+              />
             ))
           )}
         </div>

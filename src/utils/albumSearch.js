@@ -13,15 +13,18 @@ const API_NAMES = {
   musicbrainz: "MusicBrainz",
 };
 
-// Fetch with an abort timeout so one slow API can't stall the fallback chain
-async function fetchWithTimeout(url, timeoutMs, signal) {
+// Fetch and parse JSON with an abort timeout so one slow API can't stall the
+// fallback chain. The timeout covers reading the body, not just the headers.
+async function fetchJsonWithTimeout(url, timeoutMs, signal) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   const abort = () => controller.abort();
   signal?.addEventListener("abort", abort);
 
   try {
-    return await fetch(url, { signal: controller.signal });
+    const response = await fetch(url, { signal: controller.signal });
+    const data = await response.json();
+    return { ok: response.ok, status: response.status, data };
   } finally {
     clearTimeout(timeoutId);
     signal?.removeEventListener("abort", abort);
@@ -31,7 +34,7 @@ async function fetchWithTimeout(url, timeoutMs, signal) {
 // iTunes is called straight from the browser: it needs no API key, allows
 // CORS, and rate-limits/blocks requests coming from Cloudflare Worker IPs
 async function searchItunes(term, signal) {
-  const response = await fetchWithTimeout(
+  const { ok, status, data } = await fetchJsonWithTimeout(
     `https://itunes.apple.com/search?term=${encodeURIComponent(
       term
     )}&entity=album&limit=20`,
@@ -39,11 +42,9 @@ async function searchItunes(term, signal) {
     signal
   );
 
-  if (!response.ok) {
-    throw new Error(`iTunes API returned ${response.status}`);
+  if (!ok) {
+    throw new Error(`iTunes API returned ${status}`);
   }
-
-  const data = await response.json();
 
   if (!Array.isArray(data.results)) {
     throw new Error("Invalid iTunes API response");
@@ -63,15 +64,13 @@ async function searchItunes(term, signal) {
 
 // Last.fm, Discogs and MusicBrainz go through the worker, which holds the keys
 async function searchViaWorker(api, term, signal) {
-  const response = await fetchWithTimeout(
+  const { ok, data } = await fetchJsonWithTimeout(
     `${WORKER_URL}/?q=${encodeURIComponent(term)}&api=${api}`,
     10000,
     signal
   );
 
-  const data = await response.json();
-
-  if (!response.ok || !Array.isArray(data)) {
+  if (!ok || !Array.isArray(data)) {
     throw new Error(data?.error || `Invalid ${API_NAMES[api]} API response`);
   }
 
@@ -109,6 +108,8 @@ export async function searchWithFallback(
 
     try {
       const results = await apis[api](term, signal);
+      // The search may have been cancelled while this API was responding
+      if (signal?.aborted) break;
       if (results.length > 0) {
         cache.set(cacheKey, results);
         return { api, results };

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import "./Result.css";
 
-const Result = ({ album, useJPG }) => {
+const Result = ({ album, useJPG, fadingOut = false }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
 
   const getHighResImageUrl = (url) => {
@@ -82,7 +82,7 @@ const Result = ({ album, useJPG }) => {
 
   return (
     <div
-      className="album-card"
+      className={`album-card ${fadingOut ? "fade-out" : ""}`}
       onClick={handleClick}
       role="button"
       tabIndex={0}
