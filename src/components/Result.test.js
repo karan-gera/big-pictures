@@ -36,3 +36,20 @@ test('opens the full-resolution iTunes image', () => {
 
   expect(url).toBe('https://is1-ssl.mzstatic.com/image/thumb/x/10000x10000bb.png');
 });
+
+test('a faded-out card is inert and does not open anything', () => {
+  const open = jest.spyOn(window, 'open').mockImplementation(() => {});
+  render(
+    <Result
+      album={{ id: 1, title: 't', artist: 'a', imageUrl: 'u', originalImageUrl: 'u' }}
+      useJPG={false}
+      fadingOut
+    />
+  );
+  const card = document.querySelector('.album-card');
+
+  expect(card).toHaveAttribute('inert');
+  fireEvent.click(card);
+  expect(open).not.toHaveBeenCalled();
+  open.mockRestore();
+});

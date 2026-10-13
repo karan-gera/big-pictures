@@ -52,6 +52,9 @@ const Result = ({ album, useJPG, fadingOut = false }) => {
   };
 
   const handleClick = () => {
+    // Faded-out cards are stale and invisible, so they shouldn't open anything
+    if (fadingOut) return;
+
     // For Last.fm results, prefer imageUrl over originalImageUrl if originalImageUrl is Cover Art Archive
     // This is because Cover Art Archive URLs may not exist even if the MBID is present
     let urlToUse = album.originalImageUrl || album.imageUrl;
@@ -86,6 +89,7 @@ const Result = ({ album, useJPG, fadingOut = false }) => {
       onClick={handleClick}
       role="button"
       tabIndex={0}
+      inert={fadingOut}
     >
       <div className="image-container">
         {!imageLoaded && <div className="loading-spinner" />}
