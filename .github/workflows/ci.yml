@@ -9,9 +9,11 @@ on:
 permissions:
   contents: read
 
+# Superseded PR runs are cancelled, but master runs queue instead: cancelling
+# one could stop a Pages deploy partway through
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
 
 jobs:
   app:
