@@ -51,6 +51,54 @@ jobs:
       # Bundles the worker without uploading it; needs no Cloudflare login
       - run: npx wrangler deploy --dry-run --outdir dist
 
+  deploy-worker:
+    name: Deploy worker to Cloudflare
+    needs: [worker]
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: worker-deploy
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: worker
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      # Pushes only deploy when they touched worker/; running the workflow by
+      # hand always deploys
+      - name: Check whether the worker changed
+        id: changes
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] ||
+             ! git diff --quiet "${{ github.event.before }}" "${{ github.sha }}" -- .; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No changes in worker/, skipping deploy"
+          fi
+      - name: Check for Cloudflare credentials
+        id: creds
+        if: steps.changes.outputs.deploy == 'true'
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::warning::CLOUDFLARE_API_TOKEN secret or CLOUDFLARE_ACCOUNT_ID variable is not set, skipping worker deploy"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/setup-node@v7
+        if: steps.creds.outputs.ok == 'true'
+        with:
+          node-version-file: .nvmrc
+      - if: steps.creds.outputs.ok == 'true'
+        run: npm install --no-audit --no-fund
+      # Secrets set with `wrangler secret put` persist across deploys
+      - if: steps.creds.outputs.ok == 'true'
+        run: npx wrangler deploy
+
   deploy:
     name: Deploy to GitHub Pages
     needs: [app, worker]
