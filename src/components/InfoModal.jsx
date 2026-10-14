@@ -1,17 +1,38 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import "./InfoModal.css";
 
 const InfoModal = ({ isOpen, onClose }) => {
   const [isClosing, setIsClosing] = useState(false);
+  const closeButtonRef = useRef(null);
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
+    if (isClosing) return;
     setIsClosing(true);
     // Match the CSS animation duration, then reset for the next open
     setTimeout(() => {
       setIsClosing(false);
       onClose();
     }, 200);
-  };
+  }, [isClosing, onClose]);
+
+  // Move focus into the modal so keyboard and screen reader users land in it,
+  // and back to where it was on close. The cleanup runs after the page behind
+  // the modal stops being inert; focusing it any earlier silently fails.
+  useEffect(() => {
+    if (!isOpen) return;
+    const previouslyFocused = document.activeElement;
+    closeButtonRef.current?.focus();
+    return () => previouslyFocused?.focus?.();
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") handleClose();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, handleClose]);
 
   if (!isOpen) return null;
 
@@ -20,11 +41,22 @@ const InfoModal = ({ isOpen, onClose }) => {
       className={`modal-overlay ${isClosing ? "closing" : ""}`}
       onClick={handleClose}
     >
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <button className="modal-close" onClick={handleClose}>
+      <div
+        className="modal-content"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="info-modal-title"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          ref={closeButtonRef}
+          className="modal-close"
+          onClick={handleClose}
+          aria-label="Close"
+        >
           ×
         </button>
-        <h2>bigpictures</h2>
+        <h2 id="info-modal-title">bigpictures</h2>
         <p>
           no need to try to parse google images to find the least pixelated
           image of your favorite pink floyd record.

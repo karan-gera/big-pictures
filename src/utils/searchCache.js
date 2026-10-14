@@ -58,17 +58,18 @@ class LRUCache {
 
     const item = this.cache.get(key);
 
-    // Check if cache entry has expired
+    // Check if cache entry has expired. The stale copy in localStorage is
+    // dropped the next time the cache is saved or loaded.
     if (Date.now() - item.timestamp > this.expiryTime) {
       this.cache.delete(key);
-      this.saveToStorage();
       return null;
     }
 
-    // Remove and re-add to put it at the end (most recently used)
+    // Remove and re-add to put it at the end (most recently used). Reads don't
+    // save: serializing the whole cache on every lookup is wasted work, and
+    // the new order is saved with the next write.
     this.cache.delete(key);
     this.cache.set(key, item);
-    this.saveToStorage();
 
     return item.value;
   }
@@ -101,6 +102,8 @@ class LRUCache {
     }
   }
 }
+
+export { LRUCache };
 
 // Create a singleton instance
 const searchCache = new LRUCache();
