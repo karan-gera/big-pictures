@@ -152,3 +152,37 @@ test('a card whose thumbnail failed shows the new one when its image URL changes
   expect(screen.queryByText('No preview')).toBeNull();
   expect(screen.getByAltText('t cover')).toHaveAttribute('src', 'working');
 });
+
+const ITUNES_THUMB =
+  'https://is1-ssl.mzstatic.com/image/thumb/Music/v4/ab/cd/source.png/600x600bb.jpg';
+
+test('iTunes thumbnails offer WebP at several sizes', () => {
+  render(<Result album={{ id: 1, title: 't', artist: 'a', imageUrl: ITUNES_THUMB }} />);
+  const img = screen.getByAltText('t cover');
+
+  expect(img.getAttribute('srcset')).toBe(
+    ['150', '300', '600']
+      .map((s) => ITUNES_THUMB.replace('600x600bb.jpg', `${s}x${s}bb.webp`) + ` ${s}w`)
+      .join(', ')
+  );
+  expect(img).toHaveAttribute('src', ITUNES_THUMB);
+});
+
+test('thumbnails from other sources keep their single URL', () => {
+  const imageUrl = 'https://lastfm.freetls.fastly.net/i/u/300x300/abc.png';
+  render(<Result album={{ id: 'lastfm-1', title: 't', artist: 'a', imageUrl }} />);
+
+  expect(screen.getByAltText('t cover')).not.toHaveAttribute('srcset');
+});
+
+test('thumbnails load lazily and size themselves for the current view', () => {
+  const album = { id: 1, title: 't', artist: 'a', imageUrl: ITUNES_THUMB };
+  const { rerender } = render(<Result album={album} />);
+  const img = () => screen.getByAltText('t cover');
+
+  expect(img()).toHaveAttribute('loading', 'lazy');
+  expect(img().getAttribute('sizes')).toMatch(/240px$/);
+
+  rerender(<Result album={album} listView />);
+  expect(img()).toHaveAttribute('sizes', '100px');
+});
