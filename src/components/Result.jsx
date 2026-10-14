@@ -2,9 +2,25 @@ import React, { useState } from "react";
 import { buttonKeyHandlers } from "../utils/keyboard";
 import "./Result.css";
 
+// Rendered width of a thumbnail at each breakpoint in App.css, so the browser
+// can pick the smallest image that still looks sharp
+const GRID_SIZES =
+  "(max-width: 600px) 85vw, (max-width: 900px) 45vw, (max-width: 1200px) 30vw, 240px";
+const LIST_SIZES = "100px";
+
+// Apple resizes artwork to whatever size the URL asks for, in WebP too, which
+// is about a third of the JPEG's size. Other sources serve one fixed size.
+export function itunesSrcSet(src) {
+  if (!src?.includes("mzstatic.com")) return undefined;
+  if (!/\d+x\d+bb\.(jpg|png|webp)$/.test(src)) return undefined;
+  return [150, 300, 600]
+    .map((size) => `${src.replace(/\d+x\d+bb\.\w+$/, `${size}x${size}bb.webp`)} ${size}w`)
+    .join(", ");
+}
+
 // Keyed by URL where it's used, so a new image URL always starts fresh
 // instead of inheriting a previous image's loaded/failed state
-const Thumbnail = ({ src, alt }) => {
+const Thumbnail = ({ src, alt, listView }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
 
@@ -18,8 +34,12 @@ const Thumbnail = ({ src, alt }) => {
       {!imageLoaded && <div className="loading-spinner" />}
       <img
         src={src}
+        srcSet={itunesSrcSet(src)}
+        sizes={listView ? LIST_SIZES : GRID_SIZES}
         alt={alt}
         className="album-image"
+        loading="lazy"
+        decoding="async"
         onLoad={() => setImageLoaded(true)}
         onError={() => setImageFailed(true)}
         style={{ opacity: imageLoaded ? 1 : 0 }}
@@ -28,7 +48,7 @@ const Thumbnail = ({ src, alt }) => {
   );
 };
 
-const Result = ({ album, useJPG, fadingOut = false }) => {
+const Result = ({ album, useJPG, fadingOut = false, listView = false }) => {
 
   const getHighResImageUrl = (url) => {
     if (!url) return url;
@@ -119,6 +139,7 @@ const Result = ({ album, useJPG, fadingOut = false }) => {
           key={album.imageUrl}
           src={album.imageUrl}
           alt={`${album.title} cover`}
+          listView={listView}
         />
       </div>
       <div className="album-info">
