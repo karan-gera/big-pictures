@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import Result from './Result';
+import Result, { itunesSrcSet } from './Result';
 
 const clickResult = (album) => {
   const open = vi.spyOn(window, 'open').mockImplementation(() => {});
@@ -181,8 +181,23 @@ test('thumbnails load lazily and size themselves for the current view', () => {
   const img = () => screen.getByAltText('t cover');
 
   expect(img()).toHaveAttribute('loading', 'lazy');
-  expect(img().getAttribute('sizes')).toMatch(/238px$/);
+  expect(img()).toHaveAttribute(
+    'sizes',
+    '(max-width: 600px) calc(90vw - 70px), (max-width: 900px) calc(47.5vw - 60px), ' +
+      '(max-width: 1200px) calc(31.67vw - 64px), 238px'
+  );
 
   rerender(<Result album={album} listView />);
   expect(img()).toHaveAttribute('sizes', '100px');
+});
+
+test.each([
+  ['a .png thumbnail', 'https://is1-ssl.mzstatic.com/image/thumb/a/b.jpg/100x100bb.png', 'https://is1-ssl.mzstatic.com/image/thumb/a/b.jpg/150x150bb.webp 150w'],
+  ['a .webp thumbnail', 'https://is1-ssl.mzstatic.com/image/thumb/a/b.jpg/100x100bb.webp', 'https://is1-ssl.mzstatic.com/image/thumb/a/b.jpg/150x150bb.webp 150w'],
+  ['a -999 suffix', 'https://is1-ssl.mzstatic.com/image/thumb/a/b.jpg/100x100bb-999.jpg', undefined],
+  ['a query string', 'https://is1-ssl.mzstatic.com/image/thumb/a/b.jpg/100x100bb.jpg?x=1', undefined],
+  ['a URL with no size', 'https://is1-ssl.mzstatic.com/image/thumb/a/b.jpg', undefined],
+  ['another host', 'https://example.com/100x100bb.jpg', undefined],
+])('itunesSrcSet handles %s', (_, src, first) => {
+  expect(itunesSrcSet(src)?.split(', ')[0]).toBe(first);
 });
