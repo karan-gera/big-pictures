@@ -66,7 +66,7 @@ In production they're Cloudflare secrets (`npx wrangler secret put LASTFM_API_KE
 ## Deploying
 
 - **Site:** merging to `master` deploys it. GitHub Actions lints, tests, and builds, then publishes to GitHub Pages. You can also run the CI workflow by hand from the Actions tab. This needs Settings → Pages → Source set to **GitHub Actions**; the custom domain and HTTPS are also managed there.
-- **Worker:** still manual, `cd worker && npx wrangler deploy`. CI only checks that it bundles.
+- **Worker:** merging to `master` also deploys the worker with `wrangler deploy`, before the site goes out; if the worker deploy fails, the site deploy waits. This needs a `CLOUDFLARE_API_TOKEN` repo secret (a Cloudflare API token from the "Edit Cloudflare Workers" template) and a `CLOUDFLARE_ACCOUNT_ID` repo variable; without them the deploy step is skipped with a warning. You can still deploy from your machine with `cd worker && npx wrangler deploy`.
 
 Every pull request runs the same lint, test, and build checks. Dependabot opens weekly update PRs for npm packages and Actions.
 
