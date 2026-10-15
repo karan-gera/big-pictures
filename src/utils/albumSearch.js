@@ -96,6 +96,9 @@ export async function searchWithFallback(
     ...API_ORDER.filter((api) => api !== preferredAPI),
   ];
   let lastError = null;
+  // Whether any API answered at all, so "nothing found" can be told apart
+  // from "couldn't reach anything"
+  let anyAnswered = false;
 
   for (const api of order) {
     if (signal?.aborted) break;
@@ -110,6 +113,7 @@ export async function searchWithFallback(
       const results = await apis[api](term, signal);
       // The search may have been cancelled while this API was responding
       if (signal?.aborted) break;
+      anyAnswered = true;
       if (results.length > 0) {
         cache.set(cacheKey, results);
         return { api, results };
@@ -125,8 +129,9 @@ export async function searchWithFallback(
   if (signal?.aborted) {
     return { api: null, results: [], aborted: true };
   }
-  if (lastError) {
+  if (!anyAnswered) {
     console.error("All APIs failed:", lastError);
+    return { api: null, results: [], failed: true };
   }
   return { api: null, results: [] };
 }
