@@ -181,7 +181,7 @@ test('thumbnails load lazily and size themselves for the current view', () => {
   const img = () => screen.getByAltText('t cover');
 
   expect(img()).toHaveAttribute('loading', 'lazy');
-  expect(img().getAttribute('sizes')).toMatch(/240px$/);
+  expect(img().getAttribute('sizes')).toMatch(/238px$/);
 
   rerender(<Result album={album} listView />);
   expect(img()).toHaveAttribute('sizes', '100px');

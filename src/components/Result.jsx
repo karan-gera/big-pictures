@@ -3,9 +3,15 @@ import { buttonKeyHandlers } from "../utils/keyboard";
 import "./Result.css";
 
 // Rendered width of a thumbnail at each breakpoint in App.css, so the browser
-// can pick the smallest image that still looks sharp
-const GRID_SIZES =
-  "(max-width: 600px) 85vw, (max-width: 900px) 45vw, (max-width: 1200px) 30vw, 240px";
+// can pick the smallest image that still looks sharp. Each is the grid's
+// width, minus its 20px side padding and the gaps, split into columns, minus
+// the card's 15px side padding.
+const GRID_SIZES = [
+  "(max-width: 600px) calc(90vw - 70px)",
+  "(max-width: 900px) calc(47.5vw - 60px)",
+  "(max-width: 1200px) calc(31.67vw - 64px)",
+  "238px",
+].join(", ");
 const LIST_SIZES = "100px";
 
 // Apple resizes artwork to whatever size the URL asks for, in WebP too, which
