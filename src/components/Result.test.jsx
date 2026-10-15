@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import Result from './Result';
+import Result, { itunesSrcSet } from './Result';
 
 const clickResult = (album) => {
   const open = vi.spyOn(window, 'open').mockImplementation(() => {});
@@ -151,4 +151,53 @@ test('a card whose thumbnail failed shows the new one when its image URL changes
 
   expect(screen.queryByText('No preview')).toBeNull();
   expect(screen.getByAltText('t cover')).toHaveAttribute('src', 'working');
+});
+
+const ITUNES_THUMB =
+  'https://is1-ssl.mzstatic.com/image/thumb/Music/v4/ab/cd/source.png/600x600bb.jpg';
+
+test('iTunes thumbnails offer WebP at several sizes', () => {
+  render(<Result album={{ id: 1, title: 't', artist: 'a', imageUrl: ITUNES_THUMB }} />);
+  const img = screen.getByAltText('t cover');
+
+  expect(img.getAttribute('srcset')).toBe(
+    ['150', '300', '600']
+      .map((s) => ITUNES_THUMB.replace('600x600bb.jpg', `${s}x${s}bb.webp`) + ` ${s}w`)
+      .join(', ')
+  );
+  expect(img).toHaveAttribute('src', ITUNES_THUMB);
+});
+
+test('thumbnails from other sources keep their single URL', () => {
+  const imageUrl = 'https://lastfm.freetls.fastly.net/i/u/300x300/abc.png';
+  render(<Result album={{ id: 'lastfm-1', title: 't', artist: 'a', imageUrl }} />);
+
+  expect(screen.getByAltText('t cover')).not.toHaveAttribute('srcset');
+});
+
+test('thumbnails load lazily and size themselves for the current view', () => {
+  const album = { id: 1, title: 't', artist: 'a', imageUrl: ITUNES_THUMB };
+  const { rerender } = render(<Result album={album} />);
+  const img = () => screen.getByAltText('t cover');
+
+  expect(img()).toHaveAttribute('loading', 'lazy');
+  expect(img()).toHaveAttribute(
+    'sizes',
+    '(max-width: 600px) calc(90vw - 70px), (max-width: 900px) calc(47.5vw - 60px), ' +
+      '(max-width: 1200px) calc(31.67vw - 64px), 238px'
+  );
+
+  rerender(<Result album={album} listView />);
+  expect(img()).toHaveAttribute('sizes', '100px');
+});
+
+test.each([
+  ['a .png thumbnail', 'https://is1-ssl.mzstatic.com/image/thumb/a/b.jpg/100x100bb.png', 'https://is1-ssl.mzstatic.com/image/thumb/a/b.jpg/150x150bb.webp 150w'],
+  ['a .webp thumbnail', 'https://is1-ssl.mzstatic.com/image/thumb/a/b.jpg/100x100bb.webp', 'https://is1-ssl.mzstatic.com/image/thumb/a/b.jpg/150x150bb.webp 150w'],
+  ['a -999 suffix', 'https://is1-ssl.mzstatic.com/image/thumb/a/b.jpg/100x100bb-999.jpg', undefined],
+  ['a query string', 'https://is1-ssl.mzstatic.com/image/thumb/a/b.jpg/100x100bb.jpg?x=1', undefined],
+  ['a URL with no size', 'https://is1-ssl.mzstatic.com/image/thumb/a/b.jpg', undefined],
+  ['another host', 'https://example.com/100x100bb.jpg', undefined],
+])('itunesSrcSet handles %s', (_, src, first) => {
+  expect(itunesSrcSet(src)?.split(', ')[0]).toBe(first);
 });
