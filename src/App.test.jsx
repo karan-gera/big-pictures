@@ -272,6 +272,23 @@ test('clicking the view that is already showing keeps it', async () => {
   expect(grid()).toHaveClass('list-view');
 });
 
+test('a quick second click on the view buttons wins', async () => {
+  searchWithFallback.mockResolvedValue({ api: 'itunes', results: [album('Kid A')] });
+  render(<App />);
+  type('kid a');
+  await settle();
+  const grid = () => document.querySelector('.results-grid');
+
+  fireEvent.click(screen.getByLabelText('List view'));
+  await settle(80);
+  fireEvent.click(screen.getByLabelText('Grid view'));
+  await settle(250);
+
+  expect(grid()).not.toHaveClass('list-view');
+  expect(grid()).not.toHaveClass('view-transition');
+  expect(localStorage.getItem('viewType')).not.toBe('list');
+});
+
 test('says so when a search finds nothing', async () => {
   searchWithFallback.mockResolvedValue({ api: null, results: [] });
   render(<App />);

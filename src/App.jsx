@@ -47,6 +47,7 @@ function App() {
   const [useJPG, setUseJPG] = useState(prefs.format);
   const [isGridView, setIsGridView] = useState(prefs.view);
   const resultsRef = useRef(null);
+  const viewTimerRef = useRef(null);
   const searchInputRef = useRef(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -108,12 +109,19 @@ function App() {
     });
   }, []);
 
-  // Clicking the view that's already showing does nothing
+  // Clicking the view that's already showing does nothing. A switch still
+  // fading out is cancelled first, so the last click always wins.
   const showView = useCallback(
     (grid) => {
-      if (grid === isGridView || !resultsRef.current) return;
+      clearTimeout(viewTimerRef.current);
+      viewTimerRef.current = null;
+      if (grid === isGridView || !resultsRef.current) {
+        resultsRef.current?.classList.remove("view-transition");
+        return;
+      }
       resultsRef.current.classList.add("view-transition");
-      setTimeout(() => {
+      viewTimerRef.current = setTimeout(() => {
+        viewTimerRef.current = null;
         setIsGridView(grid);
         localStorage.setItem("viewType", grid ? "grid" : "list");
         resultsRef.current?.classList.remove("view-transition");
@@ -121,6 +129,8 @@ function App() {
     },
     [isGridView]
   );
+
+  useEffect(() => () => clearTimeout(viewTimerRef.current), []);
 
   // Handle the debounced search term
   useEffect(() => {
