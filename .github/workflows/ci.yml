@@ -65,24 +65,13 @@ jobs:
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+    # Deploys on every master run rather than only when worker/ changed: a
+    # newer push can replace a queued run, so a diff against the previous
+    # push could miss worker changes. Redeploying the same code is harmless.
     steps:
       - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-      # Pushes only deploy when they touched worker/; running the workflow by
-      # hand always deploys
-      - name: Check whether the worker changed
-        id: changes
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] ||
-             ! git diff --quiet "${{ github.event.before }}" "${{ github.sha }}" -- .; then
-            echo "deploy=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "No changes in worker/, skipping deploy"
-          fi
       - name: Check for Cloudflare credentials
         id: creds
-        if: steps.changes.outputs.deploy == 'true'
         run: |
           if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
             echo "::warning::CLOUDFLARE_API_TOKEN secret or CLOUDFLARE_ACCOUNT_ID variable is not set, skipping worker deploy"
@@ -99,9 +88,11 @@ jobs:
       - if: steps.creds.outputs.ok == 'true'
         run: npx wrangler deploy
 
+  # Waits for the worker so the site never goes live calling an API the
+  # worker doesn't have yet
   deploy:
     name: Deploy to GitHub Pages
-    needs: [app, worker]
+    needs: [app, worker, deploy-worker]
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     permissions:
