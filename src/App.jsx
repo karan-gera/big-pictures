@@ -371,6 +371,7 @@ function App() {
                   album={album}
                   useJPG={useJPG}
                   fadingOut={resultsAreStale}
+                  listView={!isGridView}
                 />
               ))
             )}
