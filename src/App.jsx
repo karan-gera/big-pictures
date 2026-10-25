@@ -244,7 +244,7 @@ function App() {
           </div>
           <div className="right-controls">
             <button
-                className="help-button"
+              className="help-button"
               onClick={() => setIsModalOpen(true)}
               aria-label="Show help"
             >
