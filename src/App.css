@@ -42,6 +42,11 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
+/* Wrapper that makes the page inert behind the modal; it shouldn't affect layout */
+.app-content {
+  display: contents;
+}
+
 .App-logo {
   height: 40vmin;
   pointer-events: none;
@@ -278,6 +283,13 @@ input:checked + .slider:before {
   justify-content: center;
   align-items: center;
   gap: 8px;
+}
+
+.empty-state {
+  grid-column: 1 / -1;
+  margin: 2rem 0;
+  font-size: 16px;
+  color: color-mix(in srgb, var(--text-color) 75%, transparent);
 }
 
 .loading-dot {

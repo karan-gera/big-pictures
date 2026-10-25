@@ -81,13 +81,29 @@ test("returns cached results without calling the API", async () => {
   expect(apis.itunes).not.toHaveBeenCalled();
 });
 
-test("returns empty results when every API fails", async () => {
+test("marks the search as failed when every API fails", async () => {
   const fail = () => vi.fn().mockRejectedValue(new Error("down"));
   const apis = makeApis({
     itunes: fail(),
     lastfm: fail(),
     discogs: fail(),
     musicbrainz: fail(),
+  });
+
+  const result = await searchWithFallback("kid a", "itunes", {
+    cache: makeCache(),
+    apis,
+  });
+
+  expect(result).toEqual({ api: null, results: [], failed: true });
+});
+
+test("is not marked as failed when an API answered with no results", async () => {
+  const apis = makeApis({
+    itunes: vi.fn().mockRejectedValue(new Error("down")),
+    lastfm: vi.fn().mockResolvedValue([]),
+    discogs: vi.fn().mockRejectedValue(new Error("down")),
+    musicbrainz: vi.fn().mockRejectedValue(new Error("down")),
   });
 
   const result = await searchWithFallback("kid a", "itunes", {
