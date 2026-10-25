@@ -318,21 +318,20 @@ test('the empty message hides while a new term is being typed', async () => {
   expect(screen.queryByRole('status')).toBeNull();
 });
 
-test('the PNG/JPG switch is disabled for results that only come in one format', async () => {
-  const formatSwitch = () => screen.getByLabelText(/use jpg/i);
-  searchWithFallback.mockResolvedValueOnce({ api: 'lastfm', results: [album('Kid A')] });
-  render(<App />);
-  expect(formatSwitch()).toBeEnabled();
+// Which source answered is never shown, so the switch can't depend on it
+test.each(['itunes', 'lastfm', 'discogs', 'musicbrainz'])(
+  'the PNG/JPG switch stays enabled for %s results',
+  async (api) => {
+    const formatSwitch = () => screen.getByLabelText(/use jpg/i);
+    searchWithFallback.mockResolvedValueOnce({ api, results: [album('Kid A')] });
+    render(<App />);
+    type('kid a');
+    await settle();
 
-  type('kid a');
-  await settle();
-  expect(formatSwitch()).toBeDisabled();
-
-  searchWithFallback.mockResolvedValueOnce({ api: 'itunes', results: [album('OK Computer')] });
-  type('ok computer');
-  await settle();
-  expect(formatSwitch()).toBeEnabled();
-});
+    expect(formatSwitch()).toBeEnabled();
+    expect(formatSwitch().closest('.format-controls')).not.toHaveAttribute('title');
+  }
+);
 
 test('the search box has an accessible label', () => {
   render(<App />);

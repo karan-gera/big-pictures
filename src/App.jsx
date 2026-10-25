@@ -39,7 +39,6 @@ function App() {
   // it's whenever the current request hasn't produced results yet
   const [searchResults, setSearchResults] = useState({
     request: null,
-    api: null,
     results: [],
     failed: false,
   });
@@ -157,7 +156,7 @@ function App() {
     }).then(({ api, results, failed = false }) => {
       if (controller.signal.aborted) return;
       if (api) console.log(`Showing results from ${api}`);
-      setSearchResults({ request: searchRequest, api, results, failed });
+      setSearchResults({ request: searchRequest, results, failed });
     });
 
     return () => controller.abort();
@@ -176,9 +175,6 @@ function App() {
     !isLoading &&
     !resultsAreStale &&
     debouncedResults.length === 0;
-
-  // Only iTunes serves both formats; the other sources have one file each
-  const formatApplies = !debouncedResults.length || searchResults.api === "itunes";
 
   const closeModal = useCallback(() => setIsModalOpen(false), []);
 
@@ -233,22 +229,14 @@ function App() {
           clicks can't reach it */}
       <div className="app-content" inert={isModalOpen}>
         <div className="header-controls">
-          <div
-            className={`format-controls ${formatApplies ? "" : "disabled"}`}
-            title={
-              formatApplies
-                ? "Format of the full-size iTunes image"
-                : "Only iTunes results come in both formats"
-            }
-          >
+          <div className="format-controls">
             <span>PNG</span>
             <label className="switch">
               <input
                 type="checkbox"
                 checked={useJPG}
                 onChange={toggleFormat}
-                disabled={!formatApplies}
-                aria-label="Use JPG instead of PNG for full-size iTunes images"
+                aria-label="Use JPG instead of PNG for full-size images"
               />
               <span className="slider"></span>
             </label>
